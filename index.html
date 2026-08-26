@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seguimiento de Interesados · Marketing · CORE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@700&family=Roboto:wght@300;400;500;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --orange:  #FF5C33;
+  --dark:    #333333;
+  --mid:     #474747;
+  --grey:    #9DA5A8;
+  --light:   #C9D1D3;
+  --white:   #FFFFFF;
+  --bg:      #1a1a1a;
+  --bg2:     #242424;
+  --bg3:     #2e2e2e;
+  --border:  rgba(255,255,255,0.08);
+  --text:    #F0EEEA;
+  --muted:   #9DA5A8;
+  --exec:    #4CAF7D;
+  --font:    'Roboto', sans-serif;
+  --green:   #3FA66B;
+  --amber:   #E0A526;
+  --red:     #D9483A;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; min-height: 100vh; }
+
+header {
+  background: #111111; border-bottom: 2px solid var(--orange); padding: 0 2.5rem;
+  display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 1rem;
+}
+.header-left { display: flex; align-items: center; gap: 1.25rem; }
+.logo-text { font-family: 'Poppins', sans-serif; font-size: 22px; font-weight: 700; color: white; letter-spacing: .05em; line-height: 1; }
+.header-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.15); }
+.header-title { font-size: 13px; font-weight: 300; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; }
+.header-title strong { color: var(--white); font-weight: 500; }
+
+.sync-bar {
+  background: var(--bg2); border-bottom: 1px solid var(--border); padding: .6rem 2.5rem;
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+}
+.btn-sync {
+  background: var(--orange); border: none; color: white; font-family: var(--font); font-size: 11px;
+  font-weight: 700; text-transform: uppercase; letter-spacing: .1em; padding: .45rem 1.1rem;
+  border-radius: 4px; cursor: pointer; transition: opacity .2s; display: flex; align-items: center; gap: 6px;
+}
+.btn-sync:hover { opacity: .85; }
+.btn-sync:disabled { opacity: .4; cursor: not-allowed; }
+.sync-status { font-size: 11px; color: var(--muted); letter-spacing: .04em; }
+.sync-status.ok  { color: var(--exec); }
+.sync-status.err { color: #ff6b6b; }
+.spin { display: inline-block; width: 10px; height: 10px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.filter-group { display: flex; align-items: center; gap: .5rem; margin-left: auto; flex-wrap: wrap; }
+.filter-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; font-weight: 500; }
+select, input[type="text"] {
+  background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: var(--font);
+  font-size: 11px; padding: .38rem .7rem; border-radius: 4px; outline: none; cursor: pointer; color-scheme: dark;
+}
+.btn-reset {
+  background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: var(--font);
+  font-size: 11px; text-transform: uppercase; letter-spacing: .07em; padding: .4rem .8rem; border-radius: 4px;
+  cursor: pointer; transition: all .15s;
+}
+.btn-reset:hover { border-color: var(--orange); color: var(--orange); }
+
+main { padding: 2rem 2.5rem; }
+
+.section-title {
+  font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .1em; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;
+}
+.section-title .count-badge { background: var(--bg3); color: var(--text); border-radius: 10px; padding: 1px 8px; font-size: 10px; }
+
+/* OVERVIEW GRID */
+.overview-wrap { margin-bottom: 2rem; }
+.overview-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px;
+}
+.sede-card {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: .8rem 1rem;
+  cursor: pointer; transition: border-color .15s, transform .1s; position: relative;
+}
+.sede-card:hover { border-color: rgba(255,255,255,.2); transform: translateY(-1px); }
+.sede-card.selected { border-color: var(--orange); background: linear-gradient(135deg, var(--bg2) 60%, rgba(255,92,51,.08)); }
+.sede-card.no-alerts { opacity: .6; }
+.sede-card .sede-name { font-size: 12px; font-weight: 500; color: var(--text); margin-bottom: .5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sede-card .alert-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+.pill.red { background: rgba(217,72,58,.18); color: #ff7a68; }
+.pill.amber { background: rgba(224,165,38,.18); color: #f0bb4d; }
+.pill.ok { background: rgba(63,166,107,.15); color: var(--exec); }
+.sede-card .no-alert-txt { font-size: 10px; color: var(--muted); }
+
+.empty-hint { font-size: 12px; color: var(--muted); padding: 2rem; text-align: center; background: var(--bg2); border: 1px dashed var(--border); border-radius: 6px; }
+
+/* SEDE DETAIL */
+#sede-detail { display: none; }
+#sede-detail.open { display: block; }
+.sede-header {
+  display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 8px;
+}
+.sede-header h2 { font-family: 'Poppins', sans-serif; font-size: 20px; color: var(--white); }
+.sede-header .sub { font-size: 12px; color: var(--muted); }
+
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.25rem; }
+.kpi-row.secondary { grid-template-columns: repeat(4, 1fr); margin-top: 10px; }
+.kpi {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 1.1rem 1.3rem;
+  position: relative; overflow: hidden; transition: border-color .2s;
+}
+.kpi::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--orange); opacity: 0; transition: opacity .2s; }
+.kpi:hover::before { opacity: 1; }
+.kpi.clickable { cursor: pointer; }
+.kpi-label { font-size: 10px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .5rem; }
+.kpi-val { font-size: 2.1rem; font-weight: 700; line-height: 1; color: var(--white); }
+.kpi-val.orange { color: var(--orange); }
+.kpi-val.green  { color: var(--exec); }
+.kpi-val.red { color: #ff7a68; }
+.kpi-val.amber { color: #f0bb4d; }
+.kpi-sub { font-size: 11px; color: var(--muted); margin-top: .35rem; font-weight: 300; }
+
+.charts-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 12px; margin-bottom: 1.25rem; }
+.charts-grid.tri { grid-template-columns: 1fr 1fr 1fr; }
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 1.25rem 1.5rem; transition: border-color .2s; }
+.card:hover { border-color: rgba(255,255,255,0.14); }
+.card.full { grid-column: 1 / -1; }
+.card-title { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 1rem; }
+.chart-wrap { position: relative; }
+.h200 { height: 200px; }
+.h240 { height: 240px; }
+.empty-chart { display:flex; align-items:center; justify-content:center; height:100%; font-size:12px; color:var(--muted); }
+
+/* TABLES */
+.detail-table-wrap { overflow-x: auto; max-height: 460px; overflow-y: auto; }
+table.detail-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+table.detail-table thead th {
+  text-align: left; padding: 7px 10px; color: var(--muted); font-weight: 700; text-transform: uppercase;
+  letter-spacing: .05em; font-size: 9px; border-bottom: 1px solid var(--border); position: sticky; top: 0;
+  background: var(--bg2); white-space: nowrap; cursor: pointer;
+}
+table.detail-table thead th:hover { color: var(--orange); }
+table.detail-table tbody td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text); vertical-align: top; }
+table.detail-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+.status-pill { display: inline-block; padding: 3px 9px; border-radius: 10px; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
+.status-pill.red { background: rgba(217,72,58,.18); color: #ff7a68; }
+.status-pill.amber { background: rgba(224,165,38,.18); color: #f0bb4d; }
+.status-pill.green { background: rgba(63,166,107,.15); color: var(--exec); }
+.status-pill.grey { background: rgba(255,255,255,.08); color: var(--muted); }
+.days-badge { font-weight: 700; }
+.days-badge.crit { color: #ff7a68; }
+.days-badge.warn { color: #f0bb4d; }
+.interes-alto { color: var(--exec); font-weight: 500; }
+.interes-bajo { color: var(--muted); }
+
+.toggle-wrap { display:flex; align-items:center; gap:14px; margin-bottom: 12px; flex-wrap: wrap; }
+.toggle-btn {
+  background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: var(--font);
+  font-size: 11px; padding: .4rem .9rem; border-radius: 4px; cursor: pointer; transition: all .15s;
+}
+.toggle-btn.active { border-color: var(--orange); color: var(--orange); }
+
+footer {
+  padding: 1.25rem 2.5rem; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted);
+  display: flex; align-items: center; gap: .5rem;
+}
+footer span { color: var(--orange); font-weight: 700; }
+
+.loader { font-size: 12px; color: var(--muted); padding: 2rem; text-align: center; }
+
+@media (max-width: 900px) {
+  header, .sync-bar, main { padding-left: 1rem; padding-right: 1rem; }
+  .kpi-row { grid-template-columns: 1fr 1fr; }
+  .charts-grid, .charts-grid.tri { grid-template-columns: 1fr; }
+  .filter-group { margin-left: 0; width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <span class="logo-text">CORE</span>
+    <div class="header-divider"></div>
+    <div class="header-title"><strong>Seguimiento</strong> de Interesados · Marketing</div>
+  </div>
+</header>
+
+<div class="sync-bar">
+  <button class="btn-sync" id="btn-sync" onclick="syncFromSheet()">↻ Actualizar datos</button>
+  <span class="sync-status" id="sync-status">Sin datos · pegá tu URL de Apps Script y presioná Actualizar</span>
+  <div class="filter-group">
+    <span class="filter-label">Mes</span>
+    <select id="mes-filter" onchange="onFilterChange()">
+      <option value="">Todos</option>
+    </select>
+    <span class="filter-label">Interés</span>
+    <select id="interes-filter" onchange="onFilterChange()">
+      <option value="">Todos</option>
+      <option value="alto">Alto</option>
+      <option value="bajo">Bajo</option>
+    </select>
+    <button class="btn-reset" onclick="resetFilters()">Reset</button>
+  </div>
+</div>
+
+<main>
+
+  <div class="overview-wrap">
+    <div class="section-title">Alertas por sede <span class="count-badge" id="overview-count">0 sedes</span> — elegí una para ver el detalle</div>
+    <div class="overview-grid" id="overview-grid">
+      <div class="empty-hint">Todavía no hay datos sincronizados. Configurá la URL del Apps Script en el código y tocá "Actualizar datos".</div>
+    </div>
+  </div>
+
+  <div id="sede-detail">
+    <div class="sede-header">
+      <div>
+        <h2 id="sede-title">—</h2>
+        <div class="sub" id="sede-sub">—</div>
+      </div>
+      <button class="btn-reset" onclick="closeSede()">✕ Cerrar sede</button>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="kpi-label">Contactos en el período</div>
+        <div class="kpi-val" id="k-total">—</div>
+        <div class="kpi-sub" id="k-total-sub">&nbsp;</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Interés alto</div>
+        <div class="kpi-val orange" id="k-interes-alto">—</div>
+        <div class="kpi-sub" id="k-interes-alto-sub">&nbsp;</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Venta concretada</div>
+        <div class="kpi-val green" id="k-venta">—</div>
+        <div class="kpi-sub" id="k-venta-sub">tasa de conversión</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Tiempo prom. de alertas abiertas</div>
+        <div class="kpi-val amber" id="k-tiempo">—</div>
+        <div class="kpi-sub">días desde el ingreso</div>
+      </div>
+    </div>
+
+    <div class="kpi-row secondary">
+      <div class="kpi clickable" id="kpi-no-contactado" onclick="scrollToAlerts()">
+        <div class="kpi-label">🔴 No contactado <span style="opacity:.5">▾</span></div>
+        <div class="kpi-val red" id="k-no-contactado">—</div>
+        <div class="kpi-sub">alerta activa</div>
+      </div>
+      <div class="kpi clickable" id="kpi-interesado-nr" onclick="scrollToAlerts()">
+        <div class="kpi-label">🟠 Interesado – No responde <span style="opacity:.5">▾</span></div>
+        <div class="kpi-val amber" id="k-interesado-nr">—</div>
+        <div class="kpi-sub">alerta intermedia</div>
+      </div>
+      <div class="kpi clickable" id="kpi-cdp" onclick="scrollToAlerts()">
+        <div class="kpi-label">🟠 CDP cancelada/sin reagendar <span style="opacity:.5">▾</span></div>
+        <div class="kpi-val amber" id="k-cdp">—</div>
+        <div class="kpi-sub">alerta intermedia</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Clase agendada</div>
+        <div class="kpi-val green" id="k-agendada">—</div>
+        <div class="kpi-sub">&nbsp;</div>
+      </div>
+    </div>
+
+    <div class="charts-grid tri">
+      <div class="card">
+        <div class="card-title">Distribución de estados</div>
+        <div class="chart-wrap h200"><canvas id="c-estados"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Antigüedad de alertas abiertas</div>
+        <div class="chart-wrap h200"><canvas id="c-antiguedad"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Interés (alto vs. bajo)</div>
+        <div class="chart-wrap h200"><canvas id="c-interes"></canvas></div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="card full">
+        <div class="card-title">Evolución mensual por estado</div>
+        <div class="chart-wrap h240"><canvas id="c-evolucion"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card full" style="margin-bottom:1.25rem;" id="alerts-section">
+      <div class="card-title">Contactos en alerta (ordenados por más tiempo esperando)</div>
+      <div class="detail-table-wrap" id="alerts-table"></div>
+    </div>
+
+    <div class="card full">
+      <div class="toggle-wrap">
+        <div class="card-title" style="margin-bottom:0">Listado completo</div>
+        <input type="text" id="search-input" placeholder="Buscar por nombre, usuario o teléfono…" style="min-width:260px;margin-left:auto">
+        <button class="toggle-btn active" id="btn-view-all" onclick="setListView('all')">Todos</button>
+        <button class="toggle-btn" id="btn-view-alert" onclick="setListView('alert')">Solo alertas</button>
+      </div>
+      <div class="detail-table-wrap" id="full-table"></div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <span>CORE</span> · Seguimiento de Interesados · Marketing · datos en tiempo real desde Google Sheets
+</footer>
+
+<script>
+// ====================== CONFIG ======================
+// Pegá acá la URL de tu Apps Script (Implementar > Nueva implementación > Aplicación web),
+// la misma lógica que usamos en Mantenimiento. Ver Code.gs adjunto para el código a instalar.
+const SHEET_URL = 'PEGA_ACA_TU_URL_DE_APPS_SCRIPT';
+
+const ESTADOS_ORDEN = [
+  'no_contactado', 'interesado_no_responde', 'cdp_cancelada',
+  'contactado', 'clase_agendada', 'no_interesado', 'venta_concretada'
+];
+const ESTADO_LABEL = {
+  no_contactado: 'No contactado',
+  interesado_no_responde: 'Interesado - No responde',
+  cdp_cancelada: 'CDP cancelada/sin reagendar',
+  contactado: 'Contactado',
+  clase_agendada: 'Clase agendada',
+  no_interesado: 'No interesado',
+  venta_concretada: 'Venta Concretada',
+  otro: 'Sin clasificar'
+};
+const ESTADO_COLOR = {
+  no_contactado: '#D9483A',
+  interesado_no_responde: '#E0A526',
+  cdp_cancelada: '#E0A526',
+  contactado: '#5B9CF6',
+  clase_agendada: '#3FA66B',
+  no_interesado: '#9DA5A8',
+  venta_concretada: '#4CAF7D',
+  otro: '#666'
+};
+
+let RAW = [];       // datos crudos tal cual vienen del sheet
+let liveData = [];  // datos normalizados y clasificados
+let currentSede = null;
+let listView = 'all';
+let sortState = { key: 'dias', dir: 'desc' };
+Chart.defaults.font.family = "'Roboto', sans-serif";
+Chart.defaults.color = '#9DA5A8';
+
+function classifyEstado(estadoRaw){
+  const e = (estadoRaw || '').trim().toLowerCase();
+  if (!e || e.includes('no contactado')) return { cat: 'no_contactado', alert: 'red' };
+  if (e.includes('interesado') && e.includes('no responde')) return { cat: 'interesado_no_responde', alert: 'amber' };
+  if (e.includes('cdp')) return { cat: 'cdp_cancelada', alert: 'amber' };
+  if (e.includes('clase agendada')) return { cat: 'clase_agendada', alert: 'none' };
+  if (e.includes('venta concretada')) return { cat: 'venta_concretada', alert: 'none' };
+  if (e.includes('no interesado')) return { cat: 'no_interesado', alert: 'none' };
+  if (e.includes('contactado')) return { cat: 'contactado', alert: 'none' };
+  return { cat: 'otro', alert: 'red' };
+}
+
+function daysSince(iso){
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  const ms = Date.now() - d.getTime();
+  return Math.max(0, Math.floor(ms / (1000*60*60*24)));
+}
+
+function normalize(raw){
+  return raw.map(r => {
+    const cls = classifyEstado(r.estado);
+    return {
+      ...r,
+      estadoCat: cls.cat,
+      alertLevel: cls.alert,
+      interesNorm: (r.interes||'').toLowerCase().includes('alto') ? 'alto' : ((r.interes||'').toLowerCase().includes('bajo') ? 'bajo' : ''),
+      dias: daysSince(r.fecha)
+    };
+  });
+}
+
+function escapeHtml(s){
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtDate(iso){
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
+}
+function setStatus(html, cls){
+  const el = document.getElementById('sync-status');
+  el.innerHTML = html;
+  el.className = 'sync-status ' + (cls || '');
+}
+
+// ====================== SYNC ======================
+async function syncFromSheet(){
+  const btn = document.getElementById('btn-sync');
+  if (SHEET_URL === 'PEGA_ACA_TU_URL_DE_APPS_SCRIPT'){
+    setStatus('✗ Falta configurar SHEET_URL en el código del dashboard', 'err');
+    return;
+  }
+  btn.disabled = true;
+  setStatus('<span class="spin"></span>&nbsp;Sincronizando...', '');
+  try {
+    const res = await fetch(SHEET_URL);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if (!json.ok || !json.data) throw new Error(json.error || 'Respuesta inesperada');
+    RAW = json.data;
+    liveData = normalize(RAW);
+    populateFilters();
+    const now = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
+    setStatus('✓ ' + liveData.length + ' contactos · ' + now, 'ok');
+    renderOverview();
+    if (currentSede) renderSede(currentSede);
+  } catch(e){
+    setStatus('✗ ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function populateFilters(){
+  const meses = [...new Set(liveData.map(d => d.mes).filter(Boolean))];
+  meses.sort((a,b) => {
+    const pa = parseMesKey(a), pb = parseMesKey(b);
+    return pa - pb;
+  });
+  const sel = document.getElementById('mes-filter');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Todos</option>' +
+    meses.map(m => `<option value="${escapeHtml(m)}"${m===current?' selected':''}>${escapeHtml(m)}</option>`).join('');
+}
+function parseMesKey(m){
+  // "abril23" / "abril/23" style sort fallback: use string as-is order of appearance is fine mostly;
+  // trying a light heuristic month map.
+  const meses = {enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,setiembre:9,octubre:10,noviembre:11,diciembre:12};
+  const clean = m.toLowerCase().replace(/[^a-z0-9]/g,'');
+  for (const k in meses){
+    if (clean.startsWith(k)){
+      const rest = clean.slice(k.length);
+      const yr = parseInt(rest) || 0;
+      return yr*100 + meses[k];
+    }
+  }
+  return 0;
+}
+
+function activeFilters(){
+  return {
+    mes: document.getElementById('mes-filter').value,
+    interes: document.getElementById('interes-filter').value
+  };
+}
+function filteredData(sede){
+  const f = activeFilters();
+  return liveData.filter(d =>
+    (!sede || d.sede === sede) &&
+    (!f.mes || d.mes === f.mes) &&
+    (!f.interes || d.interesNorm === f.interes)
+  );
+}
+
+function onFilterChange(){
+  renderOverview();
+  if (currentSede) renderSede(currentSede);
+}
+function resetFilters(){
+  document.getElementById('mes-filter').value = '';
+  document.getElementById('interes-filter').value = '';
+  onFilterChange();
+}
+
+// ====================== OVERVIEW ======================
+function renderOverview(){
+  const grid = document.getElementById('overview-grid');
+  if (!liveData.length){
+    grid.innerHTML = '<div class="empty-hint">Todavía no hay datos sincronizados. Tocá "Actualizar datos".</div>';
+    document.getElementById('overview-count').textContent = '0 sedes';
+    return;
+  }
+  const sedes = [...new Set(liveData.map(d => d.sede))];
+  const rows = sedes.map(sede => {
+    const data = filteredData(sede);
+    const rojas = data.filter(d => d.alertLevel === 'red').length;
+    const ambar = data.filter(d => d.alertLevel === 'amber').length;
+    return { sede, rojas, ambar, total: data.length };
+  });
+  rows.sort((a,b) => (b.rojas*2 + b.ambar) - (a.rojas*2 + a.ambar));
+
+  document.getElementById('overview-count').textContent = sedes.length + ' sedes';
+  grid.innerHTML = rows.map(r => {
+    const hasAlerts = r.rojas > 0 || r.ambar > 0;
+    return `<div class="sede-card ${r.sede===currentSede?'selected':''} ${hasAlerts?'':'no-alerts'}" onclick="openSede('${escapeHtml(r.sede).replace(/'/g,"\\'")}')">
+      <div class="sede-name" title="${escapeHtml(r.sede)}">${escapeHtml(r.sede)}</div>
+      <div class="alert-row">
+        ${r.rojas ? `<span class="pill red">🔴 ${r.rojas}</span>` : ''}
+        ${r.ambar ? `<span class="pill amber">🟠 ${r.ambar}</span>` : ''}
+        ${!hasAlerts ? `<span class="no-alert-txt">✓ sin alertas (${r.total})</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openSede(sede){
+  currentSede = sede;
+  renderOverview();
+  renderSede(sede);
+  document.getElementById('sede-detail').classList.add('open');
+  document.getElementById('sede-detail').scrollIntoView({behavior:'smooth', block:'start'});
+}
+function closeSede(){
+  currentSede = null;
+  document.getElementById('sede-detail').classList.remove('open');
+  renderOverview();
+}
+function scrollToAlerts(){
+  document.getElementById('alerts-section').scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+// ====================== SEDE DETAIL ======================
+let charts = {};
+function destroyCharts(){ Object.values(charts).forEach(c => c && c.destroy()); charts = {}; }
+
+function renderSede(sede){
+  const data = filteredData(sede);
+  document.getElementById('sede-title').textContent = sede;
+  const f = activeFilters();
+  document.getElementById('sede-sub').textContent =
+    (f.mes ? 'Mes: ' + f.mes : 'Todos los meses') + (f.interes ? ' · Interés: ' + (f.interes==='alto'?'Alto':'Bajo') : '');
+
+  const total = data.length;
+  const altoCount = data.filter(d => d.interesNorm === 'alto').length;
+  const ventaCount = data.filter(d => d.estadoCat === 'venta_concretada').length;
+  const noContactado = data.filter(d => d.estadoCat === 'no_contactado').length;
+  const interesadoNr = data.filter(d => d.estadoCat === 'interesado_no_responde').length;
+  const cdp = data.filter(d => d.estadoCat === 'cdp_cancelada').length;
+  const agendada = data.filter(d => d.estadoCat === 'clase_agendada').length;
+  const alertas = data.filter(d => d.alertLevel !== 'none');
+  const diasProm = alertas.length ? Math.round(alertas.reduce((a,b)=>a+(b.dias||0),0)/alertas.length) : 0;
+
+  document.getElementById('k-total').textContent = total;
+  document.getElementById('k-total-sub').textContent = total ? (Math.round((total-alertas.length)/total*100)) + '% ya resueltos' : '\u00A0';
+  document.getElementById('k-interes-alto').textContent = altoCount;
+  document.getElementById('k-interes-alto-sub').textContent = total ? Math.round(altoCount/total*100) + '% del total' : '\u00A0';
+  document.getElementById('k-venta').textContent = ventaCount;
+  document.getElementById('k-venta-sub').textContent = total ? Math.round(ventaCount/total*100) + '% de conversión' : '0%';
+  document.getElementById('k-tiempo').textContent = alertas.length ? diasProm + ' d' : '—';
+  document.getElementById('k-no-contactado').textContent = noContactado;
+  document.getElementById('k-interesado-nr').textContent = interesadoNr;
+  document.getElementById('k-cdp').textContent = cdp;
+  document.getElementById('k-agendada').textContent = agendada;
+
+  destroyCharts();
+  renderChartEstados(data);
+  renderChartAntiguedad(alertas);
+  renderChartInteres(data);
+  renderChartEvolucion(sede);
+  renderAlertsTable(alertas);
+  renderFullTable(data);
+}
+
+function renderChartEstados(data){
+  const ctx = document.getElementById('c-estados');
+  const counts = ESTADOS_ORDEN.map(cat => data.filter(d => d.estadoCat === cat).length);
+  if (!data.length){ ctx.parentElement.innerHTML = '<div class="empty-chart">Sin datos en el período</div>'; return; }
+  charts.estados = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ESTADOS_ORDEN.map(c => ESTADO_LABEL[c]),
+      datasets: [{ data: counts, backgroundColor: ESTADOS_ORDEN.map(c => ESTADO_COLOR[c]), borderRadius: 4 }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,.06)' }, ticks: { precision:0 } },
+        y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+function renderChartAntiguedad(alertas){
+  const ctx = document.getElementById('c-antiguedad');
+  if (!alertas.length){ ctx.parentElement.innerHTML = '<div class="empty-chart">Sin alertas abiertas 🎉</div>'; return; }
+  const buckets = [
+    { label: '0-1 día', min:0, max:1 },
+    { label: '2-3 días', min:2, max:3 },
+    { label: '4-7 días', min:4, max:7 },
+    { label: '8+ días', min:8, max:Infinity }
+  ];
+  const counts = buckets.map(b => alertas.filter(a => (a.dias||0) >= b.min && (a.dias||0) <= b.max).length);
+  charts.antiguedad = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: buckets.map(b=>b.label), datasets: [{ data: counts, backgroundColor: ['#E0A526','#E0A526','#D9483A','#D9483A'], borderRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero:true, grid: { color: 'rgba(255,255,255,.06)' }, ticks:{precision:0} }, x: { grid: { display:false } } }
+    }
+  });
+}
+
+function renderChartInteres(data){
+  const ctx = document.getElementById('c-interes');
+  const alto = data.filter(d => d.interesNorm==='alto').length;
+  const bajo = data.filter(d => d.interesNorm==='bajo').length;
+  if (!alto && !bajo){ ctx.parentElement.innerHTML = '<div class="empty-chart">Sin datos en el período</div>'; return; }
+  charts.interes = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels: ['Alto','Bajo'], datasets: [{ data: [alto,bajo], backgroundColor: ['#4CAF7D','#474747'] }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+    }
+  });
+}
+
+function renderChartEvolucion(sede){
+  const ctx = document.getElementById('c-evolucion');
+  const f = activeFilters();
+  const sedeData = liveData.filter(d => d.sede === sede && (!f.interes || d.interesNorm === f.interes));
+  const meses = [...new Set(sedeData.map(d => d.mes).filter(Boolean))].sort((a,b) => parseMesKey(a)-parseMesKey(b));
+  if (!meses.length){ ctx.parentElement.innerHTML = '<div class="empty-chart">Sin datos suficientes para evolución mensual</div>'; return; }
+  const datasets = ESTADOS_ORDEN.map(cat => ({
+    label: ESTADO_LABEL[cat],
+    data: meses.map(m => sedeData.filter(d => d.mes === m && d.estadoCat === cat).length),
+    backgroundColor: ESTADO_COLOR[cat],
+    stack: 's'
+  }));
+  charts.evolucion = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: meses, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } },
+      scales: {
+        x: { stacked: true, grid: { display:false }, ticks: { font: { size: 10 } } },
+        y: { stacked: true, beginAtZero:true, grid: { color: 'rgba(255,255,255,.06)' }, ticks:{precision:0} }
+      }
+    }
+  });
+}
+
+function statusPillClass(alertLevel){
+  if (alertLevel === 'red') return 'red';
+  if (alertLevel === 'amber') return 'amber';
+  return 'green';
+}
+
+function renderAlertsTable(alertas){
+  const el = document.getElementById('alerts-table');
+  if (!alertas.length){
+    el.innerHTML = '<p style="font-size:12px;color:var(--muted);padding:.5rem 0">✓ No hay contactos en alerta para este período. Todo al día.</p>';
+    return;
+  }
+  const sorted = alertas.slice().sort((a,b) => (b.dias||0) - (a.dias||0));
+  el.innerHTML = buildTable(sorted, true);
+}
+
+function setListView(v){
+  listView = v;
+  document.getElementById('btn-view-all').classList.toggle('active', v==='all');
+  document.getElementById('btn-view-alert').classList.toggle('active', v==='alert');
+  renderFullTable(filteredData(currentSede));
+}
+
+function renderFullTable(data){
+  let rows = listView === 'alert' ? data.filter(d => d.alertLevel !== 'none') : data;
+  const q = (document.getElementById('search-input').value || '').toLowerCase();
+  if (q){
+    rows = rows.filter(d => (d.nombre||'').toLowerCase().includes(q) || (d.usuario||'').toLowerCase().includes(q) || (d.telefono||'').toLowerCase().includes(q));
+  }
+  rows = sortRows(rows);
+  document.getElementById('full-table').innerHTML = buildTable(rows, false);
+}
+
+function sortRows(rows){
+  const { key, dir } = sortState;
+  const sorted = rows.slice().sort((a,b) => {
+    let va, vb;
+    if (key === 'dias'){ va = a.dias||0; vb = b.dias||0; }
+    else if (key === 'fecha'){ va = a.fecha||''; vb = b.fecha||''; }
+    else { va = (a[key]||'').toString().toLowerCase(); vb = (b[key]||'').toString().toLowerCase(); }
+    if (va < vb) return dir==='asc' ? -1 : 1;
+    if (va > vb) return dir==='asc' ? 1 : -1;
+    return 0;
+  });
+  return sorted;
+}
+
+function buildTable(rows, isAlertTable){
+  const head = `<thead><tr>
+    <th onclick="applySort('consulta')">Consulta</th>
+    <th onclick="applySort('mes')">Mes</th>
+    <th onclick="applySort('fecha')">Fecha ingreso</th>
+    <th onclick="applySort('usuario')">Usuario Insta</th>
+    <th onclick="applySort('nombre')">Nombre</th>
+    <th onclick="applySort('telefono')">Teléfono</th>
+    <th onclick="applySort('interes')">Interés</th>
+    <th onclick="applySort('estado')">Estado</th>
+    <th>Responsable</th>
+    ${isAlertTable ? '<th onclick="applySort(\'dias\')">Días esperando</th>' : ''}
+  </tr></thead>`;
+  const body = '<tbody>' + rows.map(r => {
+    const dias = r.dias;
+    const diasCls = dias >= 4 ? 'crit' : (dias >= 2 ? 'warn' : '');
+    return `<tr>
+      <td>${escapeHtml(r.consulta)}</td>
+      <td>${escapeHtml(r.mes)}</td>
+      <td style="white-space:nowrap">${fmtDate(r.fecha)}</td>
+      <td>${escapeHtml(r.usuario)}</td>
+      <td>${escapeHtml(r.nombre)}</td>
+      <td style="white-space:nowrap">${escapeHtml(r.telefono)}</td>
+      <td class="${r.interesNorm==='alto'?'interes-alto':'interes-bajo'}">${escapeHtml(r.interes)}</td>
+      <td><span class="status-pill ${statusPillClass(r.alertLevel)}">${escapeHtml(r.estado || 'Sin cargar')}</span></td>
+      <td>${escapeHtml(r.responsable)}</td>
+      ${isAlertTable ? `<td class="days-badge ${diasCls}">${dias===null?'—':dias+' d'}</td>` : ''}
+    </tr>`;
+  }).join('') + '</tbody>';
+  if (!rows.length) return '<p style="font-size:12px;color:var(--muted);padding:.5rem 0">Sin resultados.</p>';
+  return `<table class="detail-table">${head}${body}</table>`;
+}
+
+function applySort(key){
+  if (sortState.key === key) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+  else { sortState.key = key; sortState.dir = 'asc'; }
+  if (currentSede) renderFullTable(filteredData(currentSede));
+}
+
+document.getElementById('search-input').addEventListener('input', () => {
+  if (currentSede) renderFullTable(filteredData(currentSede));
+});
+
+// Estado inicial
+renderOverview();
+</script>
+
+</body>
+</html>
