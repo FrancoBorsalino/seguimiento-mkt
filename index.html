@@ -158,6 +158,8 @@ table.priority-table thead th {
 }
 table.priority-table tbody td { padding: 8px 8px; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text); vertical-align: top; overflow-wrap: break-word; }
 table.priority-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+table.priority-table tbody tr.row-selected { background: rgba(255,92,51,.07); }
+table.priority-table thead th input[type="checkbox"], table.priority-table tbody td input[type="checkbox"] { cursor: pointer; }
 .comment-cell { font-size: 11px; color: var(--light); line-height: 1.35; }
 .comment-cell .k { color: var(--muted); }
 .fecha-cell { font-size: 10.5px; line-height: 1.4; white-space: normal; }
@@ -247,7 +249,7 @@ footer span { color: var(--orange); font-weight: 700; }
 </header>
 
 <div class="sync-bar">
-  <button class="btn-sync" id="btn-sync" onclick="syncFromSheet()">↻ Actualizar datos</button>
+  <button class="btn-sync" id="btn-sync" onclick="syncFromSheet()">Actualizar datos</button>
   <span class="sync-status" id="sync-status">Sin datos · pegá tu URL de Apps Script y presioná Actualizar</span>
   <div class="filter-group">
     <span class="filter-label">Sedes</span>
@@ -285,7 +287,7 @@ footer span { color: var(--orange); font-weight: 700; }
         <h2 id="sede-title">—</h2>
         <div class="sub" id="sede-sub">—</div>
       </div>
-      <button class="btn-reset" onclick="closeSede()">✕ Cerrar sede</button>
+      <button class="btn-reset" onclick="closeSede()">Cerrar sede</button>
     </div>
 
     <!-- LISTADO PRIORITARIO -->
@@ -297,7 +299,9 @@ footer span { color: var(--orange); font-weight: 700; }
         </div>
         <input type="text" id="priority-search" placeholder="Buscar por nombre o teléfono…" style="min-width:220px" oninput="renderPriorityTable()">
         <div class="priority-count" id="priority-count"></div>
-        <button class="btn-export" id="btn-export" onclick="exportExcel()">⬇ Exportar Excel</button>
+        <button class="btn-reset" id="btn-hide" onclick="hideSelected()" disabled>Ocultar seleccionadas</button>
+        <button class="btn-reset" id="btn-restore" onclick="restoreHidden()" style="display:none"></button>
+        <button class="btn-export" id="btn-export" onclick="exportExcel()">Exportar Excel</button>
       </div>
       <div class="priority-table-wrap" id="priority-table"></div>
     </div>
@@ -321,7 +325,7 @@ footer span { color: var(--orange); font-weight: 700; }
         <div class="kpi-sub" id="k-venta-sub">tasa de conversión</div>
       </div>
       <div class="kpi">
-        <div class="kpi-label">Tiempo prom. de alertas abiertas</div>
+        <div class="kpi-label">Tiempo prom. sin contactar</div>
         <div class="kpi-val amber" id="k-tiempo">—</div>
         <div class="kpi-sub">tiempo en horario laboral</div>
       </div>
@@ -420,6 +424,8 @@ let allSedeNames = [];      // todas las sedes detectadas en el sheet, ya ordena
 let selectedSedes = [];     // sedes elegidas por el usuario (persistidas)
 let currentSede = null;
 let priorityView = 'red';   // 'red' | 'amber'
+let hiddenIds = new Set();     // filas ocultadas manualmente — no cuentan para stats ni listados
+let selectedIds = new Set();   // filas tildadas actualmente en la tabla
 Chart.defaults.font.family = "'Roboto', sans-serif";
 Chart.defaults.color = '#9DA5A8';
 
@@ -517,10 +523,11 @@ function sortSedesNumeric(arr){
 }
 
 function normalize(raw){
-  return raw.map(r => {
+  return raw.map((r, idx) => {
     const cls = classifyEstado(r.estado);
     return {
       ...r,
+      _id: idx + '|' + r.sede + '|' + (r.fecha||'') + '|' + (r.telefono||''),
       estadoCat: cls.cat,
       alertLevel: cls.alert,
       interesNorm: (r.interes||'').toLowerCase().includes('alto') ? 'alto' : ((r.interes||'').toLowerCase().includes('bajo') ? 'bajo' : ''),
@@ -592,7 +599,12 @@ function onSedeCheck(sede, checked){
   selectedSedes = sortSedesNumeric(selectedSedes);
   saveSelectedSedes();
   updateSedePickerCount();
-  renderOverview();
+  // si estabas viendo el detalle de la sede que acabás de destildar, lo cerramos prolijamente
+  if (!checked && sede === currentSede){
+    closeSede();
+  } else {
+    renderOverview();
+  }
 }
 function selectAllSedes(){
   selectedSedes = sortSedesNumeric(allSedeNames.slice());
@@ -617,7 +629,7 @@ function updateSedePickerCount(){
 async function syncFromSheet(){
   const btn = document.getElementById('btn-sync');
   if (SHEET_URL === 'PEGA_ACA_TU_URL_DE_APPS_SCRIPT'){
-    setStatus('✗ Falta configurar SHEET_URL en el código del dashboard', 'err');
+    setStatus('Falta configurar SHEET_URL en el código del dashboard', 'err');
     return;
   }
   btn.disabled = true;
@@ -630,6 +642,8 @@ async function syncFromSheet(){
     RAW = json.data;
     liveData = normalize(RAW);
     allSedeNames = sortSedesNumeric([...new Set(liveData.map(d => d.sede))]);
+    hiddenIds.clear();
+    selectedIds.clear();
 
     // primera vez: si no había selección previa, arrancamos sin ninguna seleccionada
     // (para no "tirar todo"); si ya había, filtramos las que ya no existan.
@@ -641,11 +655,11 @@ async function syncFromSheet(){
     updateSedePickerCount();
 
     const now = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
-    setStatus('✓ ' + liveData.length + ' contactos · ' + now, 'ok');
+    setStatus(liveData.length + ' contactos · ' + now, 'ok');
     renderOverview();
     if (currentSede) renderSede(currentSede);
   } catch(e){
-    setStatus('✗ ' + e.message, 'err');
+    setStatus('Error: ' + e.message, 'err');
   } finally {
     btn.disabled = false;
   }
@@ -688,7 +702,7 @@ function activeFilters(){
 }
 function filteredData(sede){
   const f = activeFilters();
-  return liveData.filter(d => (!sede || d.sede === sede) && (!f.mes || d.mes === f.mes));
+  return liveData.filter(d => (!sede || d.sede === sede) && (!f.mes || d.mes === f.mes) && !hiddenIds.has(d._id));
 }
 
 function onFilterChange(){
@@ -730,9 +744,9 @@ function renderOverview(){
     return `<div class="sede-card ${r.sede===currentSede?'selected':''} ${hasAlerts?'':'no-alerts'}" onclick="openSede('${escapeHtml(r.sede).replace(/'/g,"\\'")}')">
       <div class="sede-name" title="${escapeHtml(r.sede)}">${escapeHtml(r.sede)}</div>
       <div class="alert-row">
-        ${r.rojas ? `<span class="pill red">🔴 ${r.rojas}</span>` : ''}
-        ${r.ambar ? `<span class="pill amber">🟠 ${r.ambar}</span>` : ''}
-        ${!hasAlerts ? `<span class="no-alert-txt">✓ sin alertas (${r.total})</span>` : ''}
+        ${r.rojas ? `<span class="pill red">🔴 ${r.rojas} no contactados</span>` : ''}
+        ${r.ambar ? `<span class="pill amber">🟠 ${r.ambar} interm.</span>` : ''}
+        ${!hasAlerts ? `<span class="no-alert-txt">Sin alertas (${r.total})</span>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -742,12 +756,17 @@ function openSede(sede){
   currentSede = sede;
   priorityView = 'red';
   renderOverview();
+  // Mostramos el panel ANTES de dibujar los gráficos: si el contenedor está oculto (display:none)
+  // al momento de crear los charts, Chart.js los calcula con tamaño 0 y quedan en blanco.
+  const detail = document.getElementById('sede-detail');
+  detail.classList.add('open');
   renderSede(sede);
-  document.getElementById('sede-detail').classList.add('open');
-  document.getElementById('sede-detail').scrollIntoView({behavior:'smooth', block:'start'});
+  detail.scrollIntoView({behavior:'smooth', block:'start'});
 }
 function closeSede(){
   currentSede = null;
+  selectedIds.clear();
+  destroyCharts();
   document.getElementById('sede-detail').classList.remove('open');
   renderOverview();
 }
@@ -770,7 +789,8 @@ function renderSede(sede){
   const cdp = data.filter(d => d.estadoCat === 'cdp_cancelada').length;
   const agendada = data.filter(d => d.estadoCat === 'clase_agendada').length;
   const alertas = data.filter(d => d.alertLevel !== 'none');
-  const minProm = alertas.length ? Math.round(alertas.reduce((a,b)=>a+(b.elapsed?b.elapsed.totalMinutes:0),0)/alertas.length) : 0;
+  const noContactadosRows = data.filter(d => d.estadoCat === 'no_contactado'); // incluye "sin cargar" (estado vacío)
+  const minProm = noContactadosRows.length ? Math.round(noContactadosRows.reduce((a,b)=>a+(b.elapsed?b.elapsed.totalMinutes:0),0)/noContactadosRows.length) : 0;
 
   document.getElementById('k-total').textContent = total;
   document.getElementById('k-total-sub').textContent = total ? (Math.round((total-alertas.length)/total*100)) + '% ya resueltos' : '\u00A0';
@@ -778,7 +798,7 @@ function renderSede(sede){
   document.getElementById('k-interes-alto-sub').textContent = total ? Math.round(altoCount/total*100) + '% del total' : '\u00A0';
   document.getElementById('k-venta').textContent = ventaCount;
   document.getElementById('k-venta-sub').textContent = total ? Math.round(ventaCount/total*100) + '% de conversión' : '0%';
-  document.getElementById('k-tiempo').textContent = alertas.length ? fmtElapsed({totalMinutes: minProm}) : '—';
+  document.getElementById('k-tiempo').textContent = noContactadosRows.length ? fmtElapsed({totalMinutes: minProm}) : '—';
   document.getElementById('k-no-contactado').textContent = noContactado;
   document.getElementById('k-interesado-nr').textContent = interesadoNr;
   document.getElementById('k-cdp').textContent = cdp;
@@ -796,6 +816,7 @@ function renderSede(sede){
 // ---- Listado prioritario (No contactados / Alertas intermedias) ----
 function setPriorityView(view){
   priorityView = view;
+  selectedIds.clear();
   document.getElementById('btn-toggle-red').classList.toggle('active', view==='red');
   document.getElementById('btn-toggle-amber').classList.toggle('active', view==='amber');
   renderPriorityTable();
@@ -832,29 +853,34 @@ function renderPriorityTable(){
   const rows = getPriorityRows();
 
   document.getElementById('priority-count').innerHTML = `<b>${rows.length}</b> contacto${rows.length===1?'':'s'}`;
+  updateHideRestoreButtons();
 
   const wrap = document.getElementById('priority-table');
   if (!rows.length){
-    wrap.innerHTML = `<p style="font-size:12px;color:var(--muted);padding:1rem 0">✓ No hay contactos en "${priorityView==='red'?'No contactados':'Alertas intermedias'}" para este período. Todo al día.</p>`;
+    wrap.innerHTML = `<p style="font-size:12px;color:var(--muted);padding:1rem 0">No hay contactos en "${priorityView==='red'?'No contactados':'Alertas intermedias'}" para este período. Todo al día.</p>`;
     return;
   }
 
+  const allChecked = rows.every(r => selectedIds.has(r._id));
   const head = `<thead><tr>
-    <th style="width:13%">Consulta</th>
+    <th style="width:3%"><input type="checkbox" ${allChecked?'checked':''} onchange="toggleSelectAllRows(this.checked)"></th>
+    <th style="width:12%">Consulta</th>
     <th style="width:9%">Fecha</th>
-    <th style="width:10%">Usuario Insta</th>
-    <th style="width:12%">Nombre y Apellido</th>
-    <th style="width:9%">Teléfono</th>
-    <th style="width:12%">Estado</th>
-    <th style="width:12%">Chat actualizado</th>
-    <th style="width:14%">Comentarios</th>
+    <th style="width:9%">Usuario Insta</th>
+    <th style="width:11%">Nombre y Apellido</th>
+    <th style="width:8%">Teléfono</th>
+    <th style="width:11%">Estado</th>
+    <th style="width:11%">Chat actualizado</th>
+    <th style="width:13%">Comentarios</th>
     <th style="width:9%">Sin contactar<br><span style="font-weight:400;text-transform:none;font-size:8px">(horario laboral)</span></th>
   </tr></thead>`;
 
   const body = '<tbody>' + rows.map(r => {
     const min = r.elapsed ? r.elapsed.totalMinutes : 0;
     const cls = min >= 240 ? 'crit' : (min >= 20 ? 'warn' : 'ok'); // 240min=4h laborales, 20min=objetivo de respuesta
-    return `<tr>
+    const checked = selectedIds.has(r._id);
+    return `<tr class="${checked?'row-selected':''}">
+      <td><input type="checkbox" ${checked?'checked':''} onchange="toggleSelectRow('${r._id}', this.checked)"></td>
       <td>${escapeHtml(r.consulta)}</td>
       <td class="fecha-cell">${fmtDate2Lineas(r.fecha)}</td>
       <td>${escapeHtml(r.usuario)}</td>
@@ -870,10 +896,56 @@ function renderPriorityTable(){
   wrap.innerHTML = `<table class="priority-table">${head}${body}</table>`;
 }
 
+// ---- Selección de filas (checkboxes) ----
+function toggleSelectRow(id, checked){
+  if (checked) selectedIds.add(id); else selectedIds.delete(id);
+  updateHideRestoreButtons();
+  // repintamos solo para reflejar el resaltado y el estado del check "todos"; evita perder el scroll si es posible
+  renderPriorityTable();
+}
+function toggleSelectAllRows(checked){
+  const rows = getPriorityRows();
+  rows.forEach(r => { if (checked) selectedIds.add(r._id); else selectedIds.delete(r._id); });
+  renderPriorityTable();
+}
+function updateHideRestoreButtons(){
+  const btnHide = document.getElementById('btn-hide');
+  if (btnHide) btnHide.disabled = selectedIds.size === 0;
+  const btnRestore = document.getElementById('btn-restore');
+  if (btnRestore){
+    const hiddenEnSede = currentSede ? liveDataHiddenCountForSede(currentSede) : 0;
+    if (hiddenEnSede > 0){
+      btnRestore.style.display = '';
+      btnRestore.textContent = 'Mostrar ' + hiddenEnSede + ' oculto' + (hiddenEnSede===1?'':'s');
+    } else {
+      btnRestore.style.display = 'none';
+    }
+  }
+}
+function liveDataHiddenCountForSede(sede){
+  return liveData.filter(d => d.sede === sede && hiddenIds.has(d._id)).length;
+}
+function hideSelected(){
+  if (!selectedIds.size) return;
+  selectedIds.forEach(id => hiddenIds.add(id));
+  selectedIds.clear();
+  // ocultar afecta todo: KPIs, gráficos, overview y el listado — repintamos la sede completa
+  if (currentSede) renderSede(currentSede);
+  renderOverview();
+}
+function restoreHidden(){
+  if (!currentSede) return;
+  liveData.forEach(d => { if (d.sede === currentSede) hiddenIds.delete(d._id); });
+  renderSede(currentSede);
+  renderOverview();
+}
+
 // ---- Exportar a Excel con formato CORE ----
 async function exportExcel(){
   if (!currentSede) return;
-  const rows = getPriorityRows();
+  const allRows = getPriorityRows();
+  const selectedVisible = allRows.filter(r => selectedIds.has(r._id));
+  const rows = selectedVisible.length ? selectedVisible : allRows;
   if (!rows.length){ alert('No hay contactos para exportar en esta vista.'); return; }
   const btn = document.getElementById('btn-export');
   btn.disabled = true;
@@ -992,7 +1064,7 @@ function renderChartAntiguedad(alertas){
   const ctx = document.getElementById('c-antiguedad');
   ctx.parentElement.innerHTML = '<canvas id="c-antiguedad"></canvas>';
   const ctx2 = document.getElementById('c-antiguedad');
-  if (!alertas.length){ ctx2.parentElement.innerHTML = '<div class="empty-chart">Sin alertas abiertas 🎉</div>'; return; }
+  if (!alertas.length){ ctx2.parentElement.innerHTML = '<div class="empty-chart">Sin alertas abiertas</div>'; return; }
   const buckets = [
     { label: '< 20 min', min:0, max:20 },
     { label: '20-60 min', min:20, max:60 },
