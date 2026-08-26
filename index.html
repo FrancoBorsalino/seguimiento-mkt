@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@700&family=Roboto:wght@300;400;500;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <style>
 :root {
   --orange:  #FF5C33;
@@ -43,7 +44,7 @@ header {
 
 .sync-bar {
   background: var(--bg2); border-bottom: 1px solid var(--border); padding: .6rem 2.5rem;
-  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; position: relative;
 }
 .btn-sync {
   background: var(--orange); border: none; color: white; font-family: var(--font); font-size: 11px;
@@ -70,6 +71,32 @@ select, input[type="text"] {
   cursor: pointer; transition: all .15s;
 }
 .btn-reset:hover { border-color: var(--orange); color: var(--orange); }
+
+/* SEDE PICKER (dropdown) */
+.sede-picker { position: relative; }
+.btn-sede-picker {
+  background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: var(--font);
+  font-size: 11px; padding: .4rem .8rem; border-radius: 4px; cursor: pointer; display:flex; align-items:center; gap:6px;
+}
+.btn-sede-picker:hover { border-color: var(--orange); }
+.btn-sede-picker .n { background: var(--orange); color: #fff; font-weight:700; border-radius: 10px; padding: 1px 6px; font-size: 10px; }
+.sede-picker-panel {
+  display: none; position: absolute; top: calc(100% + 6px); left: 0; z-index: 50;
+  background: #1d1d1d; border: 1px solid var(--border); border-radius: 6px; width: 300px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.4); padding: 10px;
+}
+.sede-picker-panel.open { display: block; }
+.sede-picker-panel input[type="text"] { width: 100%; margin-bottom: 8px; }
+.sede-picker-actions { display:flex; gap:6px; margin-bottom:8px; }
+.sede-picker-actions button {
+  flex:1; background: transparent; border: 1px solid var(--border); color: var(--muted); font-size: 10px;
+  padding: .3rem .5rem; border-radius: 4px; cursor: pointer; text-transform: uppercase; letter-spacing:.04em;
+}
+.sede-picker-actions button:hover { border-color: var(--orange); color: var(--orange); }
+.sede-picker-list { max-height: 280px; overflow-y: auto; }
+.sede-picker-item { display: flex; align-items: center; gap: 8px; padding: 5px 4px; font-size: 12px; cursor: pointer; border-radius: 4px; }
+.sede-picker-item:hover { background: rgba(255,255,255,.04); }
+.sede-picker-item input { cursor: pointer; }
 
 main { padding: 2rem 2.5rem; }
 
@@ -110,6 +137,50 @@ main { padding: 2rem 2.5rem; }
 .sede-header h2 { font-family: 'Poppins', sans-serif; font-size: 20px; color: var(--white); }
 .sede-header .sub { font-size: 12px; color: var(--muted); }
 
+/* LISTADO PRINCIPAL (no contactados / alertas intermedias) */
+.priority-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 1.25rem 1.5rem; margin-bottom: 1.75rem; }
+.priority-header { display:flex; align-items:center; justify-content:space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.priority-toggle { display: flex; gap: 6px; }
+.priority-toggle button {
+  background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: var(--font);
+  font-size: 11px; font-weight: 700; padding: .5rem 1rem; border-radius: 4px; cursor: pointer;
+  text-transform: uppercase; letter-spacing: .05em; transition: all .15s;
+}
+.priority-toggle button.active.red { border-color: var(--red); color: #ff7a68; background: rgba(217,72,58,.1); }
+.priority-toggle button.active.amber { border-color: var(--amber); color: #f0bb4d; background: rgba(224,165,38,.1); }
+.priority-count { font-size: 11px; color: var(--muted); }
+.priority-count b { color: var(--text); }
+
+table.priority-table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+table.priority-table thead th {
+  text-align: left; padding: 7px 8px; color: var(--muted); font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; font-size: 9px; border-bottom: 1px solid var(--border);
+}
+table.priority-table tbody td { padding: 8px 8px; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text); vertical-align: top; overflow-wrap: break-word; }
+table.priority-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+.comment-cell { font-size: 11px; color: var(--light); line-height: 1.35; }
+.comment-cell .k { color: var(--muted); }
+.wait-badge { font-weight: 700; white-space: nowrap; }
+.wait-badge.crit { color: #ff7a68; }
+.wait-badge.warn { color: #f0bb4d; }
+.wait-badge.ok { color: var(--muted); }
+
+.status-pill { display: inline-block; padding: 3px 9px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; }
+.status-pill.red { background: rgba(217,72,58,.18); color: #ff7a68; }
+.status-pill.amber { background: rgba(224,165,38,.18); color: #f0bb4d; }
+.status-pill.green { background: rgba(63,166,107,.15); color: var(--exec); }
+.status-pill.grey { background: rgba(255,255,255,.08); color: var(--muted); }
+
+.btn-export {
+  background: transparent; border: 1px solid var(--exec); color: var(--exec); font-family: var(--font);
+  font-size: 11px; font-weight: 700; padding: .5rem 1rem; border-radius: 4px; cursor: pointer;
+  text-transform: uppercase; letter-spacing: .05em; transition: all .15s; display:flex; align-items:center; gap:6px;
+}
+.btn-export:hover { background: rgba(76,175,125,.12); }
+.btn-export:disabled { opacity: .5; cursor: not-allowed; }
+
+.priority-table-wrap { overflow-x: hidden; max-height: 560px; overflow-y: auto; }
+
 .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.25rem; }
 .kpi-row.secondary { grid-template-columns: repeat(4, 1fr); margin-top: 10px; }
 .kpi {
@@ -138,34 +209,10 @@ main { padding: 2rem 2.5rem; }
 .h240 { height: 240px; }
 .empty-chart { display:flex; align-items:center; justify-content:center; height:100%; font-size:12px; color:var(--muted); }
 
-/* TABLES */
-.detail-table-wrap { overflow-x: auto; max-height: 460px; overflow-y: auto; }
-table.detail-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-table.detail-table thead th {
-  text-align: left; padding: 7px 10px; color: var(--muted); font-weight: 700; text-transform: uppercase;
-  letter-spacing: .05em; font-size: 9px; border-bottom: 1px solid var(--border); position: sticky; top: 0;
-  background: var(--bg2); white-space: nowrap; cursor: pointer;
+.stats-section-title {
+  font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .1em; margin: 0 0 1rem; padding-top: .5rem; border-top: 1px solid var(--border);
 }
-table.detail-table thead th:hover { color: var(--orange); }
-table.detail-table tbody td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text); vertical-align: top; }
-table.detail-table tbody tr:hover { background: rgba(255,255,255,0.02); }
-.status-pill { display: inline-block; padding: 3px 9px; border-radius: 10px; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
-.status-pill.red { background: rgba(217,72,58,.18); color: #ff7a68; }
-.status-pill.amber { background: rgba(224,165,38,.18); color: #f0bb4d; }
-.status-pill.green { background: rgba(63,166,107,.15); color: var(--exec); }
-.status-pill.grey { background: rgba(255,255,255,.08); color: var(--muted); }
-.days-badge { font-weight: 700; }
-.days-badge.crit { color: #ff7a68; }
-.days-badge.warn { color: #f0bb4d; }
-.interes-alto { color: var(--exec); font-weight: 500; }
-.interes-bajo { color: var(--muted); }
-
-.toggle-wrap { display:flex; align-items:center; gap:14px; margin-bottom: 12px; flex-wrap: wrap; }
-.toggle-btn {
-  background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: var(--font);
-  font-size: 11px; padding: .4rem .9rem; border-radius: 4px; cursor: pointer; transition: all .15s;
-}
-.toggle-btn.active { border-color: var(--orange); color: var(--orange); }
 
 footer {
   padding: 1.25rem 2.5rem; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted);
@@ -197,15 +244,21 @@ footer span { color: var(--orange); font-weight: 700; }
   <button class="btn-sync" id="btn-sync" onclick="syncFromSheet()">↻ Actualizar datos</button>
   <span class="sync-status" id="sync-status">Sin datos · pegá tu URL de Apps Script y presioná Actualizar</span>
   <div class="filter-group">
-    <span class="filter-label">Mes</span>
+    <span class="filter-label">Sedes</span>
+    <div class="sede-picker">
+      <button class="btn-sede-picker" onclick="toggleSedePicker()">Elegir sedes <span class="n" id="sede-picker-count">0</span> ▾</button>
+      <div class="sede-picker-panel" id="sede-picker-panel">
+        <input type="text" id="sede-picker-search" placeholder="Buscar sede…" oninput="renderSedePickerList()">
+        <div class="sede-picker-actions">
+          <button onclick="selectAllSedes()">Todas</button>
+          <button onclick="clearAllSedes()">Ninguna</button>
+        </div>
+        <div class="sede-picker-list" id="sede-picker-list"></div>
+      </div>
+    </div>
+    <span class="filter-label">Mes/Año</span>
     <select id="mes-filter" onchange="onFilterChange()">
       <option value="">Todos</option>
-    </select>
-    <span class="filter-label">Interés</span>
-    <select id="interes-filter" onchange="onFilterChange()">
-      <option value="">Todos</option>
-      <option value="alto">Alto</option>
-      <option value="bajo">Bajo</option>
     </select>
     <button class="btn-reset" onclick="resetFilters()">Reset</button>
   </div>
@@ -228,6 +281,22 @@ footer span { color: var(--orange); font-weight: 700; }
       </div>
       <button class="btn-reset" onclick="closeSede()">✕ Cerrar sede</button>
     </div>
+
+    <!-- LISTADO PRIORITARIO -->
+    <div class="priority-card">
+      <div class="priority-header">
+        <div class="priority-toggle">
+          <button class="active red" id="btn-toggle-red" onclick="setPriorityView('red')">🔴 No contactados</button>
+          <button class="amber" id="btn-toggle-amber" onclick="setPriorityView('amber')">🟠 Alertas intermedias</button>
+        </div>
+        <input type="text" id="priority-search" placeholder="Buscar por nombre o teléfono…" style="min-width:220px" oninput="renderPriorityTable()">
+        <div class="priority-count" id="priority-count"></div>
+        <button class="btn-export" id="btn-export" onclick="exportExcel()">⬇ Exportar Excel</button>
+      </div>
+      <div class="priority-table-wrap" id="priority-table"></div>
+    </div>
+
+    <div class="stats-section-title">Estadísticas de la sede</div>
 
     <div class="kpi-row">
       <div class="kpi">
@@ -253,17 +322,17 @@ footer span { color: var(--orange); font-weight: 700; }
     </div>
 
     <div class="kpi-row secondary">
-      <div class="kpi clickable" id="kpi-no-contactado" onclick="scrollToAlerts()">
+      <div class="kpi clickable" onclick="setPriorityView('red')">
         <div class="kpi-label">🔴 No contactado <span style="opacity:.5">▾</span></div>
         <div class="kpi-val red" id="k-no-contactado">—</div>
         <div class="kpi-sub">alerta activa</div>
       </div>
-      <div class="kpi clickable" id="kpi-interesado-nr" onclick="scrollToAlerts()">
+      <div class="kpi clickable" onclick="setPriorityView('amber')">
         <div class="kpi-label">🟠 Interesado – No responde <span style="opacity:.5">▾</span></div>
         <div class="kpi-val amber" id="k-interesado-nr">—</div>
         <div class="kpi-sub">alerta intermedia</div>
       </div>
-      <div class="kpi clickable" id="kpi-cdp" onclick="scrollToAlerts()">
+      <div class="kpi clickable" onclick="setPriorityView('amber')">
         <div class="kpi-label">🟠 CDP cancelada/sin reagendar <span style="opacity:.5">▾</span></div>
         <div class="kpi-val amber" id="k-cdp">—</div>
         <div class="kpi-sub">alerta intermedia</div>
@@ -297,20 +366,6 @@ footer span { color: var(--orange); font-weight: 700; }
       </div>
     </div>
 
-    <div class="card full" style="margin-bottom:1.25rem;" id="alerts-section">
-      <div class="card-title">Contactos en alerta (ordenados por más tiempo esperando)</div>
-      <div class="detail-table-wrap" id="alerts-table"></div>
-    </div>
-
-    <div class="card full">
-      <div class="toggle-wrap">
-        <div class="card-title" style="margin-bottom:0">Listado completo</div>
-        <input type="text" id="search-input" placeholder="Buscar por nombre, usuario o teléfono…" style="min-width:260px;margin-left:auto">
-        <button class="toggle-btn active" id="btn-view-all" onclick="setListView('all')">Todos</button>
-        <button class="toggle-btn" id="btn-view-alert" onclick="setListView('alert')">Solo alertas</button>
-      </div>
-      <div class="detail-table-wrap" id="full-table"></div>
-    </div>
   </div>
 
 </main>
@@ -323,7 +378,8 @@ footer span { color: var(--orange); font-weight: 700; }
 // ====================== CONFIG ======================
 // Pegá acá la URL de tu Apps Script (Implementar > Nueva implementación > Aplicación web),
 // la misma lógica que usamos en Mantenimiento. Ver Code.gs adjunto para el código a instalar.
-const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxQZr54-G28ynrdwniqt_lL_s-qSvkyaT6UT91ZO34QL5F9f2EBiKuuNvtvAUVnCfRq-Q/exec';
+const SHEET_URL = 'PEGA_ACA_TU_URL_DE_APPS_SCRIPT';
+const STORAGE_KEY = 'core_marketing_selected_sedes_v1';
 
 const ESTADOS_ORDEN = [
   'no_contactado', 'interesado_no_responde', 'cdp_cancelada',
@@ -349,12 +405,15 @@ const ESTADO_COLOR = {
   venta_concretada: '#4CAF7D',
   otro: '#666'
 };
+// Nombres de mes válidos para filtrar entradas "sucias" de la columna Mes
+const MESES_VALIDOS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','setiembre','octubre','noviembre','diciembre'];
 
-let RAW = [];       // datos crudos tal cual vienen del sheet
-let liveData = [];  // datos normalizados y clasificados
+let RAW = [];
+let liveData = [];
+let allSedeNames = [];      // todas las sedes detectadas en el sheet, ya ordenadas numéricamente
+let selectedSedes = [];     // sedes elegidas por el usuario (persistidas)
 let currentSede = null;
-let listView = 'all';
-let sortState = { key: 'dias', dir: 'desc' };
+let priorityView = 'red';   // 'red' | 'amber'
 Chart.defaults.font.family = "'Roboto', sans-serif";
 Chart.defaults.color = '#9DA5A8';
 
@@ -377,6 +436,30 @@ function daysSince(iso){
   const ms = Date.now() - d.getTime();
   return Math.max(0, Math.floor(ms / (1000*60*60*24)));
 }
+// Devuelve {days, hours, totalHours} desde la fecha de ingreso hasta ahora (momento de sincronización)
+function elapsedSince(iso){
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  const ms = Math.max(0, Date.now() - d.getTime());
+  const totalHours = ms / (1000*60*60);
+  const days = Math.floor(totalHours / 24);
+  const hours = Math.floor(totalHours % 24);
+  return { days, hours, totalHours };
+}
+function fmtElapsed(el){
+  if (!el) return '—';
+  if (el.days > 0) return el.days + 'd ' + el.hours + 'h';
+  return el.hours + 'h';
+}
+
+function sedeNum(sede){
+  const m = (sede||'').match(/(\d+)/);
+  return m ? parseInt(m[1], 10) : 9999;
+}
+function sortSedesNumeric(arr){
+  return arr.slice().sort((a,b) => sedeNum(a) - sedeNum(b) || a.localeCompare(b));
+}
 
 function normalize(raw){
   return raw.map(r => {
@@ -386,7 +469,8 @@ function normalize(raw){
       estadoCat: cls.cat,
       alertLevel: cls.alert,
       interesNorm: (r.interes||'').toLowerCase().includes('alto') ? 'alto' : ((r.interes||'').toLowerCase().includes('bajo') ? 'bajo' : ''),
-      dias: daysSince(r.fecha)
+      dias: daysSince(r.fecha),
+      elapsed: elapsedSince(r.fecha)
     };
   });
 }
@@ -407,6 +491,65 @@ function setStatus(html, cls){
   el.className = 'sync-status ' + (cls || '');
 }
 
+// ====================== SEDE PICKER (persistido) ======================
+function loadSelectedSedes(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e){ return []; }
+}
+function saveSelectedSedes(){
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(selectedSedes)); } catch(e){}
+}
+function toggleSedePicker(){
+  document.getElementById('sede-picker-panel').classList.toggle('open');
+}
+document.addEventListener('click', (e) => {
+  const picker = document.querySelector('.sede-picker');
+  if (picker && !picker.contains(e.target)){
+    document.getElementById('sede-picker-panel').classList.remove('open');
+  }
+});
+function renderSedePickerList(){
+  const list = document.getElementById('sede-picker-list');
+  const q = (document.getElementById('sede-picker-search').value || '').toLowerCase();
+  const items = allSedeNames.filter(s => s.toLowerCase().includes(q));
+  if (!items.length){
+    list.innerHTML = '<p style="font-size:11px;color:var(--muted);padding:6px">Sin coincidencias.</p>';
+    return;
+  }
+  list.innerHTML = items.map(s => `<label class="sede-picker-item">
+    <input type="checkbox" value="${escapeHtml(s)}" ${selectedSedes.includes(s)?'checked':''} onchange="onSedeCheck('${escapeHtml(s).replace(/'/g,"\\'")}', this.checked)">
+    <span>${escapeHtml(s)}</span>
+  </label>`).join('');
+}
+function onSedeCheck(sede, checked){
+  if (checked){ if (!selectedSedes.includes(sede)) selectedSedes.push(sede); }
+  else { selectedSedes = selectedSedes.filter(s => s !== sede); }
+  selectedSedes = sortSedesNumeric(selectedSedes);
+  saveSelectedSedes();
+  updateSedePickerCount();
+  renderOverview();
+}
+function selectAllSedes(){
+  selectedSedes = sortSedesNumeric(allSedeNames.slice());
+  saveSelectedSedes();
+  updateSedePickerCount();
+  renderSedePickerList();
+  renderOverview();
+}
+function clearAllSedes(){
+  selectedSedes = [];
+  saveSelectedSedes();
+  updateSedePickerCount();
+  renderSedePickerList();
+  renderOverview();
+  closeSede();
+}
+function updateSedePickerCount(){
+  document.getElementById('sede-picker-count').textContent = selectedSedes.length;
+}
+
 // ====================== SYNC ======================
 async function syncFromSheet(){
   const btn = document.getElementById('btn-sync');
@@ -423,7 +566,17 @@ async function syncFromSheet(){
     if (!json.ok || !json.data) throw new Error(json.error || 'Respuesta inesperada');
     RAW = json.data;
     liveData = normalize(RAW);
+    allSedeNames = sortSedesNumeric([...new Set(liveData.map(d => d.sede))]);
+
+    // primera vez: si no había selección previa, arrancamos sin ninguna seleccionada
+    // (para no "tirar todo"); si ya había, filtramos las que ya no existan.
+    const stored = loadSelectedSedes();
+    selectedSedes = sortSedesNumeric(stored.filter(s => allSedeNames.includes(s)));
+
     populateFilters();
+    renderSedePickerList();
+    updateSedePickerCount();
+
     const now = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
     setStatus('✓ ' + liveData.length + ' contactos · ' + now, 'ok');
     renderOverview();
@@ -435,22 +588,14 @@ async function syncFromSheet(){
   }
 }
 
-function populateFilters(){
-  const meses = [...new Set(liveData.map(d => d.mes).filter(Boolean))];
-  meses.sort((a,b) => {
-    const pa = parseMesKey(a), pb = parseMesKey(b);
-    return pa - pb;
-  });
-  const sel = document.getElementById('mes-filter');
-  const current = sel.value;
-  sel.innerHTML = '<option value="">Todos</option>' +
-    meses.map(m => `<option value="${escapeHtml(m)}"${m===current?' selected':''}>${escapeHtml(m)}</option>`).join('');
+function isMesValido(m){
+  if (!m) return false;
+  const clean = m.toLowerCase().replace(/[^a-záéíóúñ0-9]/g,'');
+  return MESES_VALIDOS.some(mes => clean.startsWith(mes)) && /\d/.test(clean);
 }
 function parseMesKey(m){
-  // "abril23" / "abril/23" style sort fallback: use string as-is order of appearance is fine mostly;
-  // trying a light heuristic month map.
   const meses = {enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,setiembre:9,octubre:10,noviembre:11,diciembre:12};
-  const clean = m.toLowerCase().replace(/[^a-z0-9]/g,'');
+  const clean = (m||'').toLowerCase().replace(/[^a-záéíóúñ0-9]/g,'').replace('á','a').replace('é','e');
   for (const k in meses){
     if (clean.startsWith(k)){
       const rest = clean.slice(k.length);
@@ -458,22 +603,24 @@ function parseMesKey(m){
       return yr*100 + meses[k];
     }
   }
-  return 0;
+  return -1;
+}
+
+function populateFilters(){
+  const meses = [...new Set(liveData.map(d => d.mes).filter(isMesValido))];
+  meses.sort((a,b) => parseMesKey(b) - parseMesKey(a)); // más recientes primero
+  const sel = document.getElementById('mes-filter');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Todos</option>' +
+    meses.map(m => `<option value="${escapeHtml(m)}"${m===current?' selected':''}>${escapeHtml(m)}</option>`).join('');
 }
 
 function activeFilters(){
-  return {
-    mes: document.getElementById('mes-filter').value,
-    interes: document.getElementById('interes-filter').value
-  };
+  return { mes: document.getElementById('mes-filter').value };
 }
 function filteredData(sede){
   const f = activeFilters();
-  return liveData.filter(d =>
-    (!sede || d.sede === sede) &&
-    (!f.mes || d.mes === f.mes) &&
-    (!f.interes || d.interesNorm === f.interes)
-  );
+  return liveData.filter(d => (!sede || d.sede === sede) && (!f.mes || d.mes === f.mes));
 }
 
 function onFilterChange(){
@@ -482,7 +629,6 @@ function onFilterChange(){
 }
 function resetFilters(){
   document.getElementById('mes-filter').value = '';
-  document.getElementById('interes-filter').value = '';
   onFilterChange();
 }
 
@@ -494,16 +640,21 @@ function renderOverview(){
     document.getElementById('overview-count').textContent = '0 sedes';
     return;
   }
-  const sedes = [...new Set(liveData.map(d => d.sede))];
-  const rows = sedes.map(sede => {
+  if (!selectedSedes.length){
+    grid.innerHTML = '<div class="empty-hint">No elegiste ninguna sede todavía. Usá el desplegable "Elegir sedes" de arriba para seleccionar las que querés monitorear.</div>';
+    document.getElementById('overview-count').textContent = '0 sedes';
+    return;
+  }
+  const rows = selectedSedes.map(sede => {
     const data = filteredData(sede);
     const rojas = data.filter(d => d.alertLevel === 'red').length;
     const ambar = data.filter(d => d.alertLevel === 'amber').length;
     return { sede, rojas, ambar, total: data.length };
   });
-  rows.sort((a,b) => (b.rojas*2 + b.ambar) - (a.rojas*2 + a.ambar));
+  // orden numérico de sede (1, 2, 3... no alfabético) — según lo pedido
+  rows.sort((a,b) => sedeNum(a.sede) - sedeNum(b.sede));
 
-  document.getElementById('overview-count').textContent = sedes.length + ' sedes';
+  document.getElementById('overview-count').textContent = rows.length + ' sedes';
   grid.innerHTML = rows.map(r => {
     const hasAlerts = r.rojas > 0 || r.ambar > 0;
     return `<div class="sede-card ${r.sede===currentSede?'selected':''} ${hasAlerts?'':'no-alerts'}" onclick="openSede('${escapeHtml(r.sede).replace(/'/g,"\\'")}')">
@@ -519,6 +670,7 @@ function renderOverview(){
 
 function openSede(sede){
   currentSede = sede;
+  priorityView = 'red';
   renderOverview();
   renderSede(sede);
   document.getElementById('sede-detail').classList.add('open');
@@ -529,9 +681,6 @@ function closeSede(){
   document.getElementById('sede-detail').classList.remove('open');
   renderOverview();
 }
-function scrollToAlerts(){
-  document.getElementById('alerts-section').scrollIntoView({behavior:'smooth', block:'center'});
-}
 
 // ====================== SEDE DETAIL ======================
 let charts = {};
@@ -541,8 +690,7 @@ function renderSede(sede){
   const data = filteredData(sede);
   document.getElementById('sede-title').textContent = sede;
   const f = activeFilters();
-  document.getElementById('sede-sub').textContent =
-    (f.mes ? 'Mes: ' + f.mes : 'Todos los meses') + (f.interes ? ' · Interés: ' + (f.interes==='alto'?'Alto':'Bajo') : '');
+  document.getElementById('sede-sub').textContent = f.mes ? 'Mes: ' + f.mes : 'Todos los meses';
 
   const total = data.length;
   const altoCount = data.filter(d => d.interesNorm === 'alto').length;
@@ -566,20 +714,189 @@ function renderSede(sede){
   document.getElementById('k-cdp').textContent = cdp;
   document.getElementById('k-agendada').textContent = agendada;
 
+  renderPriorityTable();
+
   destroyCharts();
   renderChartEstados(data);
   renderChartAntiguedad(alertas);
   renderChartInteres(data);
   renderChartEvolucion(sede);
-  renderAlertsTable(alertas);
-  renderFullTable(data);
 }
 
+// ---- Listado prioritario (No contactados / Alertas intermedias) ----
+function setPriorityView(view){
+  priorityView = view;
+  document.getElementById('btn-toggle-red').classList.toggle('active', view==='red');
+  document.getElementById('btn-toggle-amber').classList.toggle('active', view==='amber');
+  renderPriorityTable();
+  document.querySelector('.priority-card').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function cleanPhone(tel){
+  // "sin guiones": sacamos guiones y espacios, dejamos números (y + si lo tuviera)
+  return (tel || '').toString().replace(/[-\s]/g, '');
+}
+function statusPillClass(estadoCat){
+  if (estadoCat === 'no_contactado') return 'red';
+  if (estadoCat === 'interesado_no_responde' || estadoCat === 'cdp_cancelada') return 'amber';
+  if (estadoCat === 'contactado' || estadoCat === 'clase_agendada' || estadoCat === 'venta_concretada') return 'green';
+  return 'grey';
+}
+
+// Devuelve las filas actualmente visibles en el listado prioritario (según toggle + búsqueda),
+// ordenadas por más tiempo esperando primero. La usan tanto la tabla en pantalla como el export.
+function getPriorityRows(){
+  if (!currentSede) return [];
+  const data = filteredData(currentSede);
+  let rows = data.filter(d => d.alertLevel === priorityView);
+  const q = (document.getElementById('priority-search').value || '').toLowerCase();
+  if (q){
+    rows = rows.filter(d => (d.nombre||'').toLowerCase().includes(q) || cleanPhone(d.telefono).toLowerCase().includes(q));
+  }
+  rows.sort((a,b) => (b.elapsed ? b.elapsed.totalHours : 0) - (a.elapsed ? a.elapsed.totalHours : 0));
+  return rows;
+}
+
+function renderPriorityTable(){
+  if (!currentSede) return;
+  const rows = getPriorityRows();
+
+  document.getElementById('priority-count').innerHTML = `<b>${rows.length}</b> contacto${rows.length===1?'':'s'}`;
+
+  const wrap = document.getElementById('priority-table');
+  if (!rows.length){
+    wrap.innerHTML = `<p style="font-size:12px;color:var(--muted);padding:1rem 0">✓ No hay contactos en "${priorityView==='red'?'No contactados':'Alertas intermedias'}" para este período. Todo al día.</p>`;
+    return;
+  }
+
+  const head = `<thead><tr>
+    <th style="width:15%">Consulta</th>
+    <th style="width:12%">Fecha</th>
+    <th style="width:11%">Usuario Insta</th>
+    <th style="width:13%">Nombre y Apellido</th>
+    <th style="width:10%">Teléfono</th>
+    <th style="width:14%">Estado</th>
+    <th style="width:17%">Comentarios</th>
+    <th style="width:8%">Sin contactar</th>
+  </tr></thead>`;
+
+  const body = '<tbody>' + rows.map(r => {
+    const hrs = r.elapsed ? r.elapsed.totalHours : 0;
+    const cls = hrs >= 96 ? 'crit' : (hrs >= 24 ? 'warn' : 'ok'); // 96h=4d, 24h=1d
+    return `<tr>
+      <td>${escapeHtml(r.consulta)}</td>
+      <td>${fmtDate(r.fecha)}</td>
+      <td>${escapeHtml(r.usuario)}</td>
+      <td>${escapeHtml(r.nombre)}</td>
+      <td>${escapeHtml(cleanPhone(r.telefono))}</td>
+      <td><span class="status-pill ${statusPillClass(r.estadoCat)}">${escapeHtml(r.estado || 'Sin cargar')}</span></td>
+      <td class="comment-cell">${r.comentarioL ? escapeHtml(r.comentarioL) : '—'}</td>
+      <td class="wait-badge ${cls}">${fmtElapsed(r.elapsed)}</td>
+    </tr>`;
+  }).join('') + '</tbody>';
+
+  wrap.innerHTML = `<table class="priority-table">${head}${body}</table>`;
+}
+
+// ---- Exportar a Excel con formato CORE ----
+async function exportExcel(){
+  if (!currentSede) return;
+  const rows = getPriorityRows();
+  if (!rows.length){ alert('No hay contactos para exportar en esta vista.'); return; }
+  const btn = document.getElementById('btn-export');
+  btn.disabled = true;
+  const originalTxt = btn.innerHTML;
+  btn.innerHTML = 'Generando…';
+  try {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'CORE · Seguimiento de Interesados';
+    wb.created = new Date();
+
+    const tituloVista = priorityView === 'red' ? 'No contactados' : 'Alertas intermedias';
+    const ws = wb.addWorksheet(tituloVista.substring(0, 31));
+
+    ws.columns = [
+      { header: 'Consulta', key: 'consulta', width: 26 },
+      { header: 'Fecha', key: 'fecha', width: 18 },
+      { header: 'Usuario Insta', key: 'usuario', width: 18 },
+      { header: 'Nombre y Apellido', key: 'nombre', width: 24 },
+      { header: 'Teléfono', key: 'telefono', width: 16 },
+      { header: 'Estado de venta desde sede', key: 'estado', width: 26 },
+      { header: 'Comentarios', key: 'comentarios', width: 40 },
+      { header: 'Sin contactar', key: 'espera', width: 14 }
+    ];
+
+    // Encabezado con los colores de CORE (naranja de marca, texto blanco)
+    const headerRow = ws.getRow(1);
+    headerRow.eachCell(cell => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF5C33' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'left' };
+    });
+    headerRow.height = 20;
+
+    rows.forEach(r => {
+      const row = ws.addRow({
+        consulta: r.consulta,
+        fecha: fmtDate(r.fecha),
+        usuario: r.usuario,
+        nombre: r.nombre,
+        telefono: cleanPhone(r.telefono),
+        estado: r.estado || 'Sin cargar',
+        comentarios: r.comentarioL || '',
+        espera: fmtElapsed(r.elapsed)
+      });
+      row.eachCell(cell => { cell.alignment = { vertical: 'top', wrapText: true }; cell.font = { size: 10.5 }; });
+
+      // Estado con color semáforo (mismo criterio que en pantalla)
+      const cls = statusPillClass(r.estadoCat);
+      const estadoBg = cls === 'red' ? 'FFFCE7E4' : cls === 'amber' ? 'FFFBF1DD' : cls === 'green' ? 'FFE7F5EC' : 'FFEDEDED';
+      const estadoFg = cls === 'red' ? 'FFD9483A' : cls === 'amber' ? 'FFE0A526' : cls === 'green' ? 'FF3FA66B' : 'FF666666';
+      const estadoCell = row.getCell('estado');
+      estadoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: estadoBg } };
+      estadoCell.font = { bold: true, color: { argb: estadoFg }, size: 10.5 };
+
+      // "Sin contactar" resaltado si es crítico (4+ días)
+      const hrs = r.elapsed ? r.elapsed.totalHours : 0;
+      if (hrs >= 96) {
+        const esperaCell = row.getCell('espera');
+        esperaCell.font = { bold: true, color: { argb: 'FFD9483A' }, size: 10.5 };
+      }
+    });
+
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+    ws.autoFilter = { from: 'A1', to: 'H1' };
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const fecha = new Date().toISOString().slice(0,10);
+    const nombreArchivo = 'CORE_' + currentSede.replace(/[^a-zA-Z0-9]+/g, '_') + '_' + tituloVista.replace(/ /g, '_') + '_' + fecha + '.xlsx';
+    a.href = url;
+    a.download = nombreArchivo;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('No se pudo generar el Excel: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalTxt;
+  }
+}
+
+document.getElementById('priority-search') && document.getElementById('priority-search').addEventListener('input', renderPriorityTable);
+
+// ---- Charts ----
 function renderChartEstados(data){
   const ctx = document.getElementById('c-estados');
+  ctx.parentElement.innerHTML = '<canvas id="c-estados"></canvas>';
+  const ctx2 = document.getElementById('c-estados');
   const counts = ESTADOS_ORDEN.map(cat => data.filter(d => d.estadoCat === cat).length);
-  if (!data.length){ ctx.parentElement.innerHTML = '<div class="empty-chart">Sin datos en el período</div>'; return; }
-  charts.estados = new Chart(ctx, {
+  if (!data.length){ ctx2.parentElement.innerHTML = '<div class="empty-chart">Sin datos en el período</div>'; return; }
+  charts.estados = new Chart(ctx2, {
     type: 'bar',
     data: {
       labels: ESTADOS_ORDEN.map(c => ESTADO_LABEL[c]),
@@ -599,7 +916,9 @@ function renderChartEstados(data){
 
 function renderChartAntiguedad(alertas){
   const ctx = document.getElementById('c-antiguedad');
-  if (!alertas.length){ ctx.parentElement.innerHTML = '<div class="empty-chart">Sin alertas abiertas 🎉</div>'; return; }
+  ctx.parentElement.innerHTML = '<canvas id="c-antiguedad"></canvas>';
+  const ctx2 = document.getElementById('c-antiguedad');
+  if (!alertas.length){ ctx2.parentElement.innerHTML = '<div class="empty-chart">Sin alertas abiertas 🎉</div>'; return; }
   const buckets = [
     { label: '0-1 día', min:0, max:1 },
     { label: '2-3 días', min:2, max:3 },
@@ -607,7 +926,7 @@ function renderChartAntiguedad(alertas){
     { label: '8+ días', min:8, max:Infinity }
   ];
   const counts = buckets.map(b => alertas.filter(a => (a.dias||0) >= b.min && (a.dias||0) <= b.max).length);
-  charts.antiguedad = new Chart(ctx, {
+  charts.antiguedad = new Chart(ctx2, {
     type: 'bar',
     data: { labels: buckets.map(b=>b.label), datasets: [{ data: counts, backgroundColor: ['#E0A526','#E0A526','#D9483A','#D9483A'], borderRadius: 4 }] },
     options: {
@@ -620,10 +939,12 @@ function renderChartAntiguedad(alertas){
 
 function renderChartInteres(data){
   const ctx = document.getElementById('c-interes');
+  ctx.parentElement.innerHTML = '<canvas id="c-interes"></canvas>';
+  const ctx2 = document.getElementById('c-interes');
   const alto = data.filter(d => d.interesNorm==='alto').length;
   const bajo = data.filter(d => d.interesNorm==='bajo').length;
-  if (!alto && !bajo){ ctx.parentElement.innerHTML = '<div class="empty-chart">Sin datos en el período</div>'; return; }
-  charts.interes = new Chart(ctx, {
+  if (!alto && !bajo){ ctx2.parentElement.innerHTML = '<div class="empty-chart">Sin datos en el período</div>'; return; }
+  charts.interes = new Chart(ctx2, {
     type: 'doughnut',
     data: { labels: ['Alto','Bajo'], datasets: [{ data: [alto,bajo], backgroundColor: ['#4CAF7D','#474747'] }] },
     options: {
@@ -635,17 +956,18 @@ function renderChartInteres(data){
 
 function renderChartEvolucion(sede){
   const ctx = document.getElementById('c-evolucion');
-  const f = activeFilters();
-  const sedeData = liveData.filter(d => d.sede === sede && (!f.interes || d.interesNorm === f.interes));
-  const meses = [...new Set(sedeData.map(d => d.mes).filter(Boolean))].sort((a,b) => parseMesKey(a)-parseMesKey(b));
-  if (!meses.length){ ctx.parentElement.innerHTML = '<div class="empty-chart">Sin datos suficientes para evolución mensual</div>'; return; }
+  ctx.parentElement.innerHTML = '<canvas id="c-evolucion"></canvas>';
+  const ctx2 = document.getElementById('c-evolucion');
+  const sedeData = liveData.filter(d => d.sede === sede);
+  const meses = [...new Set(sedeData.map(d => d.mes).filter(isMesValido))].sort((a,b) => parseMesKey(a)-parseMesKey(b));
+  if (!meses.length){ ctx2.parentElement.innerHTML = '<div class="empty-chart">Sin datos suficientes para evolución mensual</div>'; return; }
   const datasets = ESTADOS_ORDEN.map(cat => ({
     label: ESTADO_LABEL[cat],
     data: meses.map(m => sedeData.filter(d => d.mes === m && d.estadoCat === cat).length),
     backgroundColor: ESTADO_COLOR[cat],
     stack: 's'
   }));
-  charts.evolucion = new Chart(ctx, {
+  charts.evolucion = new Chart(ctx2, {
     type: 'bar',
     data: { labels: meses, datasets },
     options: {
@@ -659,97 +981,8 @@ function renderChartEvolucion(sede){
   });
 }
 
-function statusPillClass(alertLevel){
-  if (alertLevel === 'red') return 'red';
-  if (alertLevel === 'amber') return 'amber';
-  return 'green';
-}
-
-function renderAlertsTable(alertas){
-  const el = document.getElementById('alerts-table');
-  if (!alertas.length){
-    el.innerHTML = '<p style="font-size:12px;color:var(--muted);padding:.5rem 0">✓ No hay contactos en alerta para este período. Todo al día.</p>';
-    return;
-  }
-  const sorted = alertas.slice().sort((a,b) => (b.dias||0) - (a.dias||0));
-  el.innerHTML = buildTable(sorted, true);
-}
-
-function setListView(v){
-  listView = v;
-  document.getElementById('btn-view-all').classList.toggle('active', v==='all');
-  document.getElementById('btn-view-alert').classList.toggle('active', v==='alert');
-  renderFullTable(filteredData(currentSede));
-}
-
-function renderFullTable(data){
-  let rows = listView === 'alert' ? data.filter(d => d.alertLevel !== 'none') : data;
-  const q = (document.getElementById('search-input').value || '').toLowerCase();
-  if (q){
-    rows = rows.filter(d => (d.nombre||'').toLowerCase().includes(q) || (d.usuario||'').toLowerCase().includes(q) || (d.telefono||'').toLowerCase().includes(q));
-  }
-  rows = sortRows(rows);
-  document.getElementById('full-table').innerHTML = buildTable(rows, false);
-}
-
-function sortRows(rows){
-  const { key, dir } = sortState;
-  const sorted = rows.slice().sort((a,b) => {
-    let va, vb;
-    if (key === 'dias'){ va = a.dias||0; vb = b.dias||0; }
-    else if (key === 'fecha'){ va = a.fecha||''; vb = b.fecha||''; }
-    else { va = (a[key]||'').toString().toLowerCase(); vb = (b[key]||'').toString().toLowerCase(); }
-    if (va < vb) return dir==='asc' ? -1 : 1;
-    if (va > vb) return dir==='asc' ? 1 : -1;
-    return 0;
-  });
-  return sorted;
-}
-
-function buildTable(rows, isAlertTable){
-  const head = `<thead><tr>
-    <th onclick="applySort('consulta')">Consulta</th>
-    <th onclick="applySort('mes')">Mes</th>
-    <th onclick="applySort('fecha')">Fecha ingreso</th>
-    <th onclick="applySort('usuario')">Usuario Insta</th>
-    <th onclick="applySort('nombre')">Nombre</th>
-    <th onclick="applySort('telefono')">Teléfono</th>
-    <th onclick="applySort('interes')">Interés</th>
-    <th onclick="applySort('estado')">Estado</th>
-    <th>Responsable</th>
-    ${isAlertTable ? '<th onclick="applySort(\'dias\')">Días esperando</th>' : ''}
-  </tr></thead>`;
-  const body = '<tbody>' + rows.map(r => {
-    const dias = r.dias;
-    const diasCls = dias >= 4 ? 'crit' : (dias >= 2 ? 'warn' : '');
-    return `<tr>
-      <td>${escapeHtml(r.consulta)}</td>
-      <td>${escapeHtml(r.mes)}</td>
-      <td style="white-space:nowrap">${fmtDate(r.fecha)}</td>
-      <td>${escapeHtml(r.usuario)}</td>
-      <td>${escapeHtml(r.nombre)}</td>
-      <td style="white-space:nowrap">${escapeHtml(r.telefono)}</td>
-      <td class="${r.interesNorm==='alto'?'interes-alto':'interes-bajo'}">${escapeHtml(r.interes)}</td>
-      <td><span class="status-pill ${statusPillClass(r.alertLevel)}">${escapeHtml(r.estado || 'Sin cargar')}</span></td>
-      <td>${escapeHtml(r.responsable)}</td>
-      ${isAlertTable ? `<td class="days-badge ${diasCls}">${dias===null?'—':dias+' d'}</td>` : ''}
-    </tr>`;
-  }).join('') + '</tbody>';
-  if (!rows.length) return '<p style="font-size:12px;color:var(--muted);padding:.5rem 0">Sin resultados.</p>';
-  return `<table class="detail-table">${head}${body}</table>`;
-}
-
-function applySort(key){
-  if (sortState.key === key) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
-  else { sortState.key = key; sortState.dir = 'asc'; }
-  if (currentSede) renderFullTable(filteredData(currentSede));
-}
-
-document.getElementById('search-input').addEventListener('input', () => {
-  if (currentSede) renderFullTable(filteredData(currentSede));
-});
-
 // Estado inicial
+selectedSedes = loadSelectedSedes();
 renderOverview();
 </script>
 
