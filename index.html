@@ -188,6 +188,14 @@ table.priority-table thead th input[type="checkbox"], table.priority-table tbody
 .btn-export:hover { background: rgba(76,175,125,.12); }
 .btn-export:disabled { opacity: .5; cursor: not-allowed; }
 
+.btn-alert {
+  background: transparent; border: 1px solid #25D366; color: #25D366; font-family: var(--font);
+  font-size: 11px; font-weight: 700; padding: .5rem 1rem; border-radius: 4px; cursor: pointer;
+  text-transform: uppercase; letter-spacing: .05em; transition: all .15s; display:flex; align-items:center; gap:6px;
+}
+.btn-alert:hover { background: rgba(37,211,102,.12); }
+.btn-alert:disabled { opacity: .5; cursor: not-allowed; }
+
 .priority-table-wrap { overflow-x: hidden; max-height: 560px; overflow-y: auto; }
 
 .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.25rem; }
@@ -305,6 +313,7 @@ footer span { color: var(--orange); font-weight: 700; }
         <div class="priority-count" id="priority-count"></div>
         <button class="btn-reset" id="btn-hide" onclick="hideSelected()" disabled>Ocultar seleccionadas</button>
         <button class="btn-reset" id="btn-restore" onclick="restoreHidden()" style="display:none"></button>
+        <button class="btn-alert" id="btn-alert" onclick="alertarSede()">Alertar a sede</button>
         <button class="btn-export" id="btn-export" onclick="exportExcel()">Exportar Excel</button>
       </div>
       <div class="priority-table-wrap" id="priority-table"></div>
@@ -434,6 +443,19 @@ const ESTADO_COLOR = {
 };
 // Nombres de mes válidos para filtrar entradas "sucias" de la columna Mes
 const MESES_VALIDOS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','setiembre','octubre','noviembre','diciembre'];
+
+// Teléfono de WhatsApp de cada sede (según CORE_SEDE_NUM.xlsx), clave = número de sede.
+const PHONES_BY_SEDE_NUM = {
+  1: '5491134296899',  2: '5491155280578',  3: '5491155697666',  4: '5491171733276',
+  5: '5491130594152',  6: '5491134032534',  7: '5491169687108',  8: '5491134107676',
+  9: '5491134107678',  10: '5491140318285', 11: '5491154670472', 12: '5491171663417',
+  13: '5491165821138', 14: '5491161035695', 15: '5491160556008', 16: '5491160539795',
+  17: '5491123007028', 18: '5491162627431', 19: '5491125361731', 20: '5491124945373',
+  21: '5491168764459', 22: '5491180244212', 23: '5491168681814', 24: '5491168699044',
+  25: '5491168747973', 26: '5491167938887', 27: '5491130269217', 28: '5491130001629',
+  29: '5491153315669', 30: '5491130340067', 31: '5491130337185', 32: '5491124900155',
+  33: '5491171661730'
+};
 
 let RAW = [];
 let liveData = [];
@@ -690,12 +712,19 @@ async function loadHistorical(){
     });
   } catch(e){ return null; }
 }
-// Saca duplicados por clave compuesta (sede+fecha+teléfono+nombre+consulta). Si hay dos filas
-// con la misma clave, se queda con la ÚLTIMA (recentData, más fresco, va después en el array).
+// Saca duplicados por clave compuesta. Si hay dos filas con la misma clave, se queda con la
+// ÚLTIMA (recentData, más fresco, va después en el array). Ojo: si la fila no tiene ni fecha
+// ni teléfono (ej. "Sin cargar" recién creado), no la deduplicamos — son datos demasiado
+// ambiguos entre sí como para asumir con seguridad que son la misma fila.
 function dedupeRows(rows){
   const map = new Map();
+  let sinIdentidad = 0;
   rows.forEach(r => {
-    const key = [r.sede, r.fecha, r.telefono, r.nombre, r.consulta].join('|');
+    if (!r.fecha && !r.telefono) {
+      map.set('sin-identidad-' + (sinIdentidad++), r);
+      return;
+    }
+    const key = [r.sede, r.fecha, r.telefono, r.nombre, r.usuario, r.consulta, r.estado].join('|');
     map.set(key, r);
   });
   return Array.from(map.values());
@@ -823,8 +852,10 @@ async function syncFromSheet(mode){
     updateSedePickerCount();
 
     const now = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
-    const modoTxt = esCompleta ? 'historial completo' : 'últimos ' + CUTOFF_WINDOW_DIAS + ' días';
-    setStatus(liveData.length + ' contactos (' + modoTxt + ') · ' + now, 'ok');
+    const modoTxt = esCompleta
+      ? liveData.length + ' contactos totales (se releyó todo)'
+      : liveData.length + ' contactos totales (se releyeron ' + fetched.length + ' de los últimos ' + CUTOFF_WINDOW_DIAS + ' días)';
+    setStatus(modoTxt + ' · ' + now, 'ok');
     renderOverview();
     if (currentSede) renderSede(currentSede);
   } catch(e){
@@ -1112,6 +1143,51 @@ function restoreHidden(){
 }
 
 // ---- Exportar a Excel con formato CORE ----
+// ---- Alertar a sede por WhatsApp ----
+function alertarSede(){
+  if (!currentSede) return;
+  const num = sedeNum(currentSede);
+  const telefono = PHONES_BY_SEDE_NUM[num];
+  if (!telefono){
+    alert('Todavía no tengo el teléfono de WhatsApp de esta sede cargado. Pasámelo y lo agrego.');
+    return;
+  }
+
+  const allRows = getPriorityRows();
+  const selectedVisible = allRows.filter(r => selectedIds.has(r._id));
+  const rows = selectedVisible.length ? selectedVisible : allRows;
+
+  if (!rows.length){
+    alert('No hay contactos para incluir en el mensaje.');
+    return;
+  }
+
+  const MAX_CONTACTOS = 25;
+  if (rows.length > MAX_CONTACTOS){
+    const seguir = confirm('Vas a mandar ' + rows.length + ' contactos en un solo mensaje — puede que WhatsApp no cargue bien un texto tan largo. ¿Seguimos igual? (Tildá algunos contactos puntuales si preferís mandar menos.)');
+    if (!seguir) return;
+  }
+
+  const listado = rows.map(r =>
+    'Nombre: ' + (r.nombre || '—') +
+    ' | Ingreso: ' + fmtDate(r.fecha) +
+    ' | Teléfono: ' + cleanPhone(r.telefono) +
+    ' | Tiempo sin respuesta: ' + fmtElapsed(r.elapsed)
+  ).join('\n');
+
+  const mensaje =
+    'Equipo! Les dejo los ultimos interesados que ingresaron desde instagram y todavia no fueron contactados. Por favor, envienles el primer mensaje lo antes posible.\n\n' +
+    listado +
+    '\n\nRecuerden que hay que revisar la planilla cada 15, 20\' y mantenerla actualizada.\n\nMuchas gracias!🧡';
+
+  const preview = mensaje.length > 350 ? mensaje.slice(0, 350) + '…' : mensaje;
+  const confirmar = confirm('Se va a abrir WhatsApp con este mensaje para ' + currentSede + ' (' + rows.length + ' contacto' + (rows.length===1?'':'s') + '):\n\n' + preview);
+  if (!confirmar) return;
+
+  const url = 'https://wa.me/' + telefono + '?text=' + encodeURIComponent(mensaje);
+  window.open(url, '_blank');
+}
+
 async function exportExcel(){
   if (!currentSede) return;
   const allRows = getPriorityRows();
@@ -1302,7 +1378,7 @@ function renderChartEvolucion(sede){
 }
 
 // Estado inicial
-console.log('%cCORE · Seguimiento de Interesados — build 2026-08-27-v4 (con diagnóstico en consola)', 'color:#FF5C33;font-weight:bold');
+console.log('%cCORE · Seguimiento de Interesados — build 2026-08-27-v6 (alertar a sede por WhatsApp)', 'color:#FF5C33;font-weight:bold');
 selectedSedes = loadSelectedSedes();
 renderOverview();
 </script>
