@@ -392,7 +392,7 @@ footer span { color: var(--orange); font-weight: 700; }
 // ====================== CONFIG ======================
 // Pegá acá la URL de tu Apps Script (Implementar > Nueva implementación > Aplicación web),
 // la misma lógica que usamos en Mantenimiento. Ver Code.gs adjunto para el código a instalar.
-const SHEET_URL = 'https://script.google.com/macros/s/AKfycbx01EyldFHqQiWmT_ElRBkCvnpWbjgar19-S0yOtv2vckPh3P_a0E1iSvuUmXdp5mnbGg/exec';
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbzW2IoOHeKQkqZg9tcVj3jd4bLWXv_j5r6XWsCNVaNKKDD95pf75GZFNKTrUpfN9xOy5Q/exec';
 const STORAGE_KEY = 'core_marketing_selected_sedes_v1';
 const STARTROWS_KEY = 'core_marketing_startrows_v1';
 const HISTORICAL_KEY = 'core_marketing_historical_v1';
@@ -838,7 +838,8 @@ function parseMesKey(m){
   for (const k in meses){
     if (clean.startsWith(k)){
       const rest = clean.slice(k.length);
-      const yr = parseInt(rest) || 0;
+      let yr = parseInt(rest) || 0;
+      if (yr > 0 && yr < 100) yr += 2000; // normalizamos año de 2 dígitos ("abril23" → 2023)
       return yr*100 + meses[k];
     }
   }
@@ -1293,7 +1294,7 @@ function renderChartEvolucion(sede){
 }
 
 // Estado inicial
-console.log('%cCORE · Seguimiento de Interesados — build 2026-08-27-v2 (cálculo por conteo+margen)', 'color:#FF5C33;font-weight:bold');
+console.log('%cCORE · Seguimiento de Interesados — build 2026-08-27-v3 (fecha por número de serie)', 'color:#FF5C33;font-weight:bold');
 selectedSedes = loadSelectedSedes();
 renderOverview();
 </script>
