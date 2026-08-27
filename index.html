@@ -690,6 +690,16 @@ async function loadHistorical(){
     });
   } catch(e){ return null; }
 }
+// Saca duplicados por clave compuesta (sede+fecha+teléfono+nombre+consulta). Si hay dos filas
+// con la misma clave, se queda con la ÚLTIMA (recentData, más fresco, va después en el array).
+function dedupeRows(rows){
+  const map = new Map();
+  rows.forEach(r => {
+    const key = [r.sede, r.fecha, r.telefono, r.nombre, r.consulta].join('|');
+    map.set(key, r);
+  });
+  return Array.from(map.values());
+}
 function esReciente(r, cutoff){
   if (r.fecha){
     const d = new Date(r.fecha);
@@ -783,7 +793,10 @@ async function syncFromSheet(mode){
       recentData = fetched;
     }
 
-    RAW = historicalData.concat(recentData);
+    // Deduplicamos por si historicalData y recentData llegaran a superponerse (por ej. si el
+    // caché quedó con datos de una sincronización interrumpida a mitad de camino) — así nunca
+    // se duplican contactos ni se infla el conteo, quede lo que quede pisado de antes.
+    RAW = dedupeRows(historicalData.concat(recentData));
     liveData = normalize(RAW);
     allSedeNames = sortSedesNumeric([...new Set(liveData.map(d => d.sede))]);
     hiddenIds.clear();
