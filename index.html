@@ -392,7 +392,7 @@ footer span { color: var(--orange); font-weight: 700; }
 // ====================== CONFIG ======================
 // Pegá acá la URL de tu Apps Script (Implementar > Nueva implementación > Aplicación web),
 // la misma lógica que usamos en Mantenimiento. Ver Code.gs adjunto para el código a instalar.
-const SHEET_URL = 'https://script.google.com/macros/s/AKfycbzW2IoOHeKQkqZg9tcVj3jd4bLWXv_j5r6XWsCNVaNKKDD95pf75GZFNKTrUpfN9xOy5Q/exec';
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxgMoSGfMWu4mbSQdsJlI2vctNvub06wr38mi-ChYJ4nhdQ5Aeyga8db5ClW_CAEgDwdw/exec';
 const STORAGE_KEY = 'core_marketing_selected_sedes_v1';
 const STARTROWS_KEY = 'core_marketing_startrows_v1';
 const HISTORICAL_KEY = 'core_marketing_historical_v1';
@@ -777,10 +777,15 @@ async function syncFromSheet(mode){
     if (usarParcial){
       url += (SHEET_URL.includes('?') ? '&' : '?') + 'starts=' + encodeURIComponent(JSON.stringify(stored.starts));
     }
+    console.log('[SYNC] modo pedido:', mode, '| usarParcial:', usarParcial, '| stored.starts (primeras 5 sedes):', stored && stored.starts ? Object.fromEntries(Object.entries(stored.starts).slice(0,5)) : null);
+    console.log('[SYNC] URL completa:', url);
     const res = await fetch(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     if (!json.ok) throw new Error(json.error || 'Respuesta inesperada');
+    console.log('[SYNC] respuesta del servidor → modo:', json.modo, '| count:', json.count, '| sedesInfo (primeras 5):', json.sedesInfo ? Object.fromEntries(Object.entries(json.sedesInfo).slice(0,5)) : null);
+    console.log('[SYNC] debugStartsRecibidos (primeras 5):', json.debugStartsRecibidos ? Object.fromEntries(Object.entries(json.debugStartsRecibidos).slice(0,5)) : null);
+    console.log('[SYNC] debugRangosLeidos (primeros 5):', (json.debugRangosLeidos||[]).slice(0,5));
     const fetched = json.data || [];
 
     if (esCompleta){
@@ -788,7 +793,10 @@ async function syncFromSheet(mode){
       // (últimos 90 días) y recalculamos la fila de corte para las próximas "Actualizar".
       historicalData = fetched.filter(r => !esReciente(r, cutoffActual));
       recentData = fetched.filter(r => esReciente(r, cutoffActual));
+      console.log('[SYNC] cutoff usado:', cutoffActual.toString(), '| históricas:', historicalData.length, '| recientes:', recentData.length);
+      console.log('[SYNC] ejemplo fechas crudas (primeras 3 filas recibidas):', fetched.slice(0,3).map(r => ({sede:r.sede, fecha:r.fecha, mes:r.mes})));
       const startRows = calcularStartRows(fetched, cutoffActual);
+      console.log('[SYNC] startRows calculados (primeras 5 sedes):', Object.fromEntries(Object.entries(startRows).slice(0,5)));
       saveStartRows(startRows, cutoffActual);
       const guardadoOk = await saveHistorical(historicalData);
       if (!guardadoOk) console.warn('No se pudo guardar el histórico en IndexedDB. "Actualizar" va a volver a pedir todo la próxima vez.');
@@ -1294,7 +1302,7 @@ function renderChartEvolucion(sede){
 }
 
 // Estado inicial
-console.log('%cCORE · Seguimiento de Interesados — build 2026-08-27-v3 (fecha por número de serie)', 'color:#FF5C33;font-weight:bold');
+console.log('%cCORE · Seguimiento de Interesados — build 2026-08-27-v4 (con diagnóstico en consola)', 'color:#FF5C33;font-weight:bold');
 selectedSedes = loadSelectedSedes();
 renderOverview();
 </script>
