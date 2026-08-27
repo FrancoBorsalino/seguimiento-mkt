@@ -54,6 +54,7 @@ header {
 .btn-sync:hover { opacity: .85; }
 .btn-sync:disabled { opacity: .4; cursor: not-allowed; }
 .sync-status { font-size: 11px; color: var(--muted); letter-spacing: .04em; }
+.sync-hint { font-size: 10.5px; color: var(--muted); opacity: .75; padding: .4rem 2.5rem; background: var(--bg2); border-bottom: 1px solid var(--border); }
 .sync-status.ok  { color: var(--exec); }
 .sync-status.err { color: #ff6b6b; }
 .spin { display: inline-block; width: 10px; height: 10px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
@@ -251,7 +252,7 @@ footer span { color: var(--orange); font-weight: 700; }
 <div class="sync-bar">
   <button class="btn-sync" id="btn-sync" onclick="syncFromSheet('auto')">Actualizar</button>
   <button class="btn-reset" id="btn-full-sync" onclick="syncFromSheet('full')">Sincronizar todo</button>
-  <span class="sync-status" id="sync-status">Sin datos · si es tu primera vez usá "Sincronizar todo", después ya podés usar "Actualizar"</span>
+  <span class="sync-status" id="sync-status">Sin datos todavía</span>
   <div class="filter-group">
     <span class="filter-label">Sedes</span>
     <div class="sede-picker">
@@ -272,6 +273,8 @@ footer span { color: var(--orange); font-weight: 700; }
     <button class="btn-reset" onclick="resetFilters()">Reset</button>
   </div>
 </div>
+<div class="sync-hint">"Sincronizar todo" trae el historial completo (más lento). "Actualizar" solo relee los contactos de los últimos 90 días y es la opción para el uso diario.</div>
+
 
 <main>
 
@@ -392,12 +395,17 @@ footer span { color: var(--orange); font-weight: 700; }
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbzaxecBd-BKSg-4V58FvbuzL8KvIzmCetODiPfhJLiH5Unj5LiYnpcUqYtWgUQxlN8wSQ/exec';
 const STORAGE_KEY = 'core_marketing_selected_sedes_v1';
 const STARTROWS_KEY = 'core_marketing_startrows_v1';
-// Fecha de corte: "Actualizar" siempre relee desde acá en adelante (así detecta cambios
-// de estado en contactos viejos de este período, no solo filas nuevas). El histórico
-// anterior a esta fecha se congela en la última "Sincronizar todo". Cuando quieran mover
-// el corte (por ej. a inicios de 2027), basta con cambiar esta constante y tocar
-// "Sincronizar todo" una vez.
-const CUTOFF_DATE = new Date(2026, 0, 1); // 1 de enero de 2026
+// "Actualizar" siempre relee desde HOY - CUTOFF_WINDOW_DIAS en adelante (así detecta cambios
+// de estado en contactos de ese período, no solo filas nuevas). El histórico más viejo que
+// eso se congela en la última "Sincronizar todo". Si quieren cambiar la ventana (por ej. a
+// 60 o 120 días), alcanza con tocar este número y volver a hacer "Sincronizar todo".
+const CUTOFF_WINDOW_DIAS = 90;
+function getCutoffDate(){
+  const d = new Date();
+  d.setDate(d.getDate() - CUTOFF_WINDOW_DIAS);
+  d.setHours(0,0,0,0);
+  return d;
+}
 
 const ESTADOS_ORDEN = [
   'no_contactado', 'interesado_no_responde', 'cdp_cancelada',
@@ -642,28 +650,31 @@ function loadStartRows(){
     return raw ? JSON.parse(raw) : null;
   } catch(e){ return null; }
 }
-function saveStartRows(map){
-  try { localStorage.setItem(STARTROWS_KEY, JSON.stringify({ starts: map, cutoff: CUTOFF_DATE.toISOString() })); } catch(e){}
+function saveStartRows(map, cutoffUsada){
+  try { localStorage.setItem(STARTROWS_KEY, JSON.stringify({ starts: map, windowDias: CUTOFF_WINDOW_DIAS, cutoff: cutoffUsada.toISOString() })); } catch(e){}
 }
-function esReciente(r){
+function esReciente(r, cutoff){
   if (r.fecha){
     const d = new Date(r.fecha);
-    if (!isNaN(d.getTime())) return d >= CUTOFF_DATE;
+    if (!isNaN(d.getTime())) return d >= cutoff;
   }
   // sin fecha válida: nos fijamos en el texto de Mes/Año como respaldo
   const key = parseMesKey(r.mes);
-  const cutoffKey = CUTOFF_DATE.getFullYear()*100 + (CUTOFF_DATE.getMonth()+1);
+  const cutoffKey = cutoff.getFullYear()*100 + (cutoff.getMonth()+1);
   return key >= cutoffKey;
 }
 // A partir de un dataset COMPLETO (fila 2 en adelante), calcula por sede la fila donde
-// arranca lo "reciente" (>= CUTOFF_DATE). Esa fila es la que usará "Actualizar" siempre.
-function calcularStartRows(fullData){
+// arranca lo "reciente" (>= cutoff). Esa fila es la que usará "Actualizar" hasta la próxima
+// "Sincronizar todo" (la ventana de 90 días va corriéndose de a poco día a día, pero como
+// solo recalculamos al sincronizar todo, "Actualizar" de mientras puede traer algún día extra
+// de más — nunca de menos, así que nunca se pierde información).
+function calcularStartRows(fullData, cutoff){
   const bySede = {};
   fullData.forEach(r => { (bySede[r.sede] = bySede[r.sede] || []).push(r); });
   const starts = {};
   Object.keys(bySede).forEach(sede => {
     const rows = bySede[sede];
-    const idx = rows.findIndex(esReciente);
+    const idx = rows.findIndex(r => esReciente(r, cutoff));
     if (idx === -1) {
       // nada reciente todavía en esta sede: que "Actualizar" solo mire filas futuras
       starts[sede] = rows.length + 2;
@@ -683,13 +694,17 @@ async function syncFromSheet(mode){
   }
 
   const stored = loadStartRows();
-  const cutoffChanged = stored && stored.cutoff !== CUTOFF_DATE.toISOString();
-  let usarParcial = (mode === 'auto' && stored && stored.starts && !cutoffChanged);
+  // Solo forzamos sincronización completa si nunca se sincronizó, o si cambiamos el tamaño
+  // de la ventana en el código (CUTOFF_WINDOW_DIAS). El corrimiento normal de la ventana
+  // día a día NO invalida el caché: "Actualizar" puede traer algún día de más, nunca de menos.
+  const windowChanged = stored && stored.windowDias !== CUTOFF_WINDOW_DIAS;
+  let usarParcial = (mode === 'auto' && stored && stored.starts && !windowChanged);
   const esCompleta = !usarParcial;
+  const cutoffActual = getCutoffDate();
 
   btnSync.disabled = true;
   btnFull.disabled = true;
-  setStatus('<span class="spin"></span>&nbsp;' + (esCompleta ? 'Sincronizando todo…' : 'Actualizando (2026 en adelante)…'), '');
+  setStatus('<span class="spin"></span>&nbsp;' + (esCompleta ? 'Sincronizando todo…' : 'Actualizando (últimos ' + CUTOFF_WINDOW_DIAS + ' días)…'), '');
 
   try {
     let url = SHEET_URL;
@@ -704,11 +719,11 @@ async function syncFromSheet(mode){
 
     if (esCompleta){
       // Sincronización completa: esto ES la nueva foto entera. Separamos histórico/reciente
-      // y recalculamos la fila de corte para las próximas "Actualizar".
-      historicalData = fetched.filter(r => !esReciente(r));
-      recentData = fetched.filter(r => esReciente(r));
-      const startRows = calcularStartRows(fetched);
-      saveStartRows(startRows);
+      // (últimos 90 días) y recalculamos la fila de corte para las próximas "Actualizar".
+      historicalData = fetched.filter(r => !esReciente(r, cutoffActual));
+      recentData = fetched.filter(r => esReciente(r, cutoffActual));
+      const startRows = calcularStartRows(fetched, cutoffActual);
+      saveStartRows(startRows, cutoffActual);
     } else {
       // Actualización parcial: reemplazamos SOLO lo reciente por lo que acaba de llegar
       // (que ya viene filtrado desde el corte en adelante); el histórico queda como estaba.
@@ -729,7 +744,7 @@ async function syncFromSheet(mode){
     updateSedePickerCount();
 
     const now = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
-    const modoTxt = esCompleta ? 'todo' : 'desde ' + CUTOFF_DATE.toLocaleDateString('es-AR');
+    const modoTxt = esCompleta ? 'historial completo' : 'últimos ' + CUTOFF_WINDOW_DIAS + ' días';
     setStatus(liveData.length + ' contactos (' + modoTxt + ') · ' + now, 'ok');
     renderOverview();
     if (currentSede) renderSede(currentSede);
