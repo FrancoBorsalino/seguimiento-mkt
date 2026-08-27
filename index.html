@@ -710,24 +710,29 @@ function esReciente(r, cutoff){
   const cutoffKey = cutoff.getFullYear()*100 + (cutoff.getMonth()+1);
   return key >= cutoffKey;
 }
-// A partir de un dataset COMPLETO (fila 2 en adelante), calcula por sede la fila donde
-// arranca lo "reciente" (>= cutoff). Esa fila es la que usará "Actualizar" hasta la próxima
-// "Sincronizar todo" (la ventana de 90 días va corriéndose de a poco día a día, pero como
-// solo recalculamos al sincronizar todo, "Actualizar" de mientras puede traer algún día extra
-// de más — nunca de menos, así que nunca se pierde información).
+// A partir de un dataset COMPLETO (fila 2 en adelante), calcula por sede cuántas filas leer
+// desde el final para cubrir "los últimos 90 días". Esa cantidad es la que usará "Actualizar"
+// hasta la próxima "Sincronizar todo".
+//
+// OJO: NO usamos "buscar la primera fila reciente de arriba hacia abajo" — eso se rompe con que
+// UNA sola fila vieja tenga una fecha rara/editada cerca del principio (por ejemplo, un profe
+// que vuelve a tocar un contacto de 2023): esa única fila hacía que pareciera que "lo reciente"
+// arrancaba casi en la fila 2, y terminábamos leyendo la sede entera igual. En cambio, CONTAMOS
+// cuántas filas son recientes y leemos esa cantidad desde el final, con un margen de seguridad
+// — así una fila vieja desordenada en el medio no arruina el ahorro, en el peor caso leemos
+// algunas filas de más, nunca de menos.
 function calcularStartRows(fullData, cutoff){
   const bySede = {};
   fullData.forEach(r => { (bySede[r.sede] = bySede[r.sede] || []).push(r); });
   const starts = {};
   Object.keys(bySede).forEach(sede => {
     const rows = bySede[sede];
-    const idx = rows.findIndex(r => esReciente(r, cutoff));
-    if (idx === -1) {
-      // nada reciente todavía en esta sede: que "Actualizar" solo mire filas futuras
-      starts[sede] = rows.length + 2;
-    } else {
-      starts[sede] = idx + 2; // +2 porque los datos arrancan en la fila 2 del sheet
-    }
+    const total = rows.length;
+    let recentCount = 0;
+    rows.forEach(r => { if (esReciente(r, cutoff)) recentCount++; });
+    const margen = Math.max(20, Math.ceil(recentCount * 0.15)); // colchón de seguridad
+    const filasALeer = Math.min(total, recentCount + margen);
+    starts[sede] = Math.max(2, total - filasALeer + 2); // +2 porque los datos arrancan en fila 2
   });
   return starts;
 }
