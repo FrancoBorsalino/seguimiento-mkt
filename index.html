@@ -1162,10 +1162,12 @@ function alertarSede(){
     return;
   }
 
+  // OJO: nada de confirm()/alert() acá abajo antes del window.open — cualquier diálogo
+  // bloqueante entre el click y el window.open hace que el navegador lo trate como si no
+  // viniera de una acción directa del usuario, y bloquea la apertura de la pestaña.
   const MAX_CONTACTOS = 25;
   if (rows.length > MAX_CONTACTOS){
-    const seguir = confirm('Vas a mandar ' + rows.length + ' contactos en un solo mensaje — puede que WhatsApp no cargue bien un texto tan largo. ¿Seguimos igual? (Tildá algunos contactos puntuales si preferís mandar menos.)');
-    if (!seguir) return;
+    console.warn('Alertar a sede: se están mandando ' + rows.length + ' contactos en un solo mensaje, puede que quede muy largo para WhatsApp.');
   }
 
   const listado = rows.map(r =>
@@ -1179,10 +1181,6 @@ function alertarSede(){
     'Equipo! Les dejo los ultimos interesados que ingresaron desde instagram y todavia no fueron contactados. Por favor, envienles el primer mensaje lo antes posible.\n\n' +
     listado +
     '\n\nRecuerden que hay que revisar la planilla cada 15, 20\' y mantenerla actualizada.\n\nMuchas gracias!🧡';
-
-  const preview = mensaje.length > 350 ? mensaje.slice(0, 350) + '…' : mensaje;
-  const confirmar = confirm('Se va a abrir WhatsApp con este mensaje para ' + currentSede + ' (' + rows.length + ' contacto' + (rows.length===1?'':'s') + '):\n\n' + preview);
-  if (!confirmar) return;
 
   const url = 'https://wa.me/' + telefono + '?text=' + encodeURIComponent(mensaje);
   window.open(url, '_blank');
@@ -1378,7 +1376,7 @@ function renderChartEvolucion(sede){
 }
 
 // Estado inicial
-console.log('%cCORE · Seguimiento de Interesados — build 2026-08-27-v6 (alertar a sede por WhatsApp)', 'color:#FF5C33;font-weight:bold');
+console.log('%cCORE · Seguimiento de Interesados — build 2026-08-27-v7 (sin confirm antes de abrir WhatsApp)', 'color:#FF5C33;font-weight:bold');
 selectedSedes = loadSelectedSedes();
 renderOverview();
 </script>
