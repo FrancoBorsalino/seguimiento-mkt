@@ -654,16 +654,40 @@ function loadStartRows(){
 function saveStartRows(map, cutoffUsada){
   try { localStorage.setItem(STARTROWS_KEY, JSON.stringify({ starts: map, windowDias: CUTOFF_WINDOW_DIAS, cutoff: cutoffUsada.toISOString() })); } catch(e){}
 }
-// El histórico (todo lo anterior a la ventana de 90 días) se guarda en el navegador para que
-// sobreviva a un F5 / cerrar y abrir la pestaña. Si no se pudiera guardar (ej: localStorage
-// lleno), seguimos igual con la sesión en memoria, solo que no persiste entre recargas.
-function saveHistorical(arr){
-  try { localStorage.setItem(HISTORICAL_KEY, JSON.stringify(arr)); return true; } catch(e){ return false; }
+// El histórico (todo lo anterior a la ventana de 90 días) puede ser bastante pesado (varios años
+// x 33 sedes), así que lo guardamos en IndexedDB en vez de localStorage: localStorage tiene un
+// límite chico (5-10MB típico) que se llena fácil con este volumen y falla en silencio; IndexedDB
+// tiene muchísimo más espacio disponible en el navegador.
+const IDB_NAME = 'core_marketing_db';
+const IDB_STORE = 'cache';
+function idbOpen(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
 }
-function loadHistorical(){
+async function saveHistorical(arr){
   try {
-    const raw = localStorage.getItem(HISTORICAL_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const db = await idbOpen();
+    return await new Promise(resolve => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(arr, HISTORICAL_KEY);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  } catch(e){ return false; }
+}
+async function loadHistorical(){
+  try {
+    const db = await idbOpen();
+    return await new Promise(resolve => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(HISTORICAL_KEY);
+      req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : null);
+      req.onerror = () => resolve(null);
+    });
   } catch(e){ return null; }
 }
 function esReciente(r, cutoff){
@@ -707,7 +731,7 @@ async function syncFromSheet(mode){
   }
 
   const stored = loadStartRows();
-  const historicalCache = loadHistorical();
+  const historicalCache = await loadHistorical();
   // Solo forzamos sincronización completa si: nunca se sincronizó, cambiamos el tamaño de la
   // ventana en el código (CUTOFF_WINDOW_DIAS), o se perdió el histórico persistido (ej: se
   // limpió el localStorage del navegador). El corrimiento normal de la ventana día a día NO
@@ -751,8 +775,8 @@ async function syncFromSheet(mode){
       recentData = fetched.filter(r => esReciente(r, cutoffActual));
       const startRows = calcularStartRows(fetched, cutoffActual);
       saveStartRows(startRows, cutoffActual);
-      const guardadoOk = saveHistorical(historicalData);
-      if (!guardadoOk) console.warn('No se pudo guardar el histórico en localStorage (¿quota llena?). "Actualizar" va a volver a pedir todo la próxima vez.');
+      const guardadoOk = await saveHistorical(historicalData);
+      if (!guardadoOk) console.warn('No se pudo guardar el histórico en IndexedDB. "Actualizar" va a volver a pedir todo la próxima vez.');
     } else {
       // Actualización parcial: reemplazamos SOLO lo reciente por lo que acaba de llegar
       // (que ya viene filtrado desde el corte en adelante); el histórico queda como estaba.
