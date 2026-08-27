@@ -395,6 +395,7 @@ footer span { color: var(--orange); font-weight: 700; }
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbzaxecBd-BKSg-4V58FvbuzL8KvIzmCetODiPfhJLiH5Unj5LiYnpcUqYtWgUQxlN8wSQ/exec';
 const STORAGE_KEY = 'core_marketing_selected_sedes_v1';
 const STARTROWS_KEY = 'core_marketing_startrows_v1';
+const HISTORICAL_KEY = 'core_marketing_historical_v1';
 // "Actualizar" siempre relee desde HOY - CUTOFF_WINDOW_DIAS en adelante (así detecta cambios
 // de estado en contactos de ese período, no solo filas nuevas). El histórico más viejo que
 // eso se congela en la última "Sincronizar todo". Si quieren cambiar la ventana (por ej. a
@@ -653,6 +654,18 @@ function loadStartRows(){
 function saveStartRows(map, cutoffUsada){
   try { localStorage.setItem(STARTROWS_KEY, JSON.stringify({ starts: map, windowDias: CUTOFF_WINDOW_DIAS, cutoff: cutoffUsada.toISOString() })); } catch(e){}
 }
+// El histórico (todo lo anterior a la ventana de 90 días) se guarda en el navegador para que
+// sobreviva a un F5 / cerrar y abrir la pestaña. Si no se pudiera guardar (ej: localStorage
+// lleno), seguimos igual con la sesión en memoria, solo que no persiste entre recargas.
+function saveHistorical(arr){
+  try { localStorage.setItem(HISTORICAL_KEY, JSON.stringify(arr)); return true; } catch(e){ return false; }
+}
+function loadHistorical(){
+  try {
+    const raw = localStorage.getItem(HISTORICAL_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e){ return null; }
+}
 function esReciente(r, cutoff){
   if (r.fecha){
     const d = new Date(r.fecha);
@@ -694,17 +707,31 @@ async function syncFromSheet(mode){
   }
 
   const stored = loadStartRows();
-  // Solo forzamos sincronización completa si nunca se sincronizó, o si cambiamos el tamaño
-  // de la ventana en el código (CUTOFF_WINDOW_DIAS). El corrimiento normal de la ventana
-  // día a día NO invalida el caché: "Actualizar" puede traer algún día de más, nunca de menos.
+  const historicalCache = loadHistorical();
+  // Solo forzamos sincronización completa si: nunca se sincronizó, cambiamos el tamaño de la
+  // ventana en el código (CUTOFF_WINDOW_DIAS), o se perdió el histórico persistido (ej: se
+  // limpió el localStorage del navegador). El corrimiento normal de la ventana día a día NO
+  // invalida el caché: "Actualizar" puede traer algún día de más, nunca de menos.
   const windowChanged = stored && stored.windowDias !== CUTOFF_WINDOW_DIAS;
-  let usarParcial = (mode === 'auto' && stored && stored.starts && !windowChanged);
+  const hayHistoricoValido = Array.isArray(historicalCache);
+  let usarParcial = (mode === 'auto' && stored && stored.starts && !windowChanged && hayHistoricoValido);
   const esCompleta = !usarParcial;
   const cutoffActual = getCutoffDate();
 
+  // Si pediste "Actualizar" pero en el fondo vamos a hacer una completa (primera vez en este
+  // navegador, o se perdió el caché), avisamos explícitamente para que no parezca que el botón
+  // "Actualizar" no sirve — en realidad está haciendo lo que tiene que hacer dada la situación.
+  const avisoFallback = (mode === 'auto' && esCompleta);
+
+  if (esCompleta) historicalData = []; // se recalcula desde cero más abajo
+  else historicalData = historicalCache;
+
   btnSync.disabled = true;
   btnFull.disabled = true;
-  setStatus('<span class="spin"></span>&nbsp;' + (esCompleta ? 'Sincronizando todo…' : 'Actualizando (últimos ' + CUTOFF_WINDOW_DIAS + ' días)…'), '');
+  const msjInicial = esCompleta
+    ? (avisoFallback ? 'No había caché en este navegador todavía: sincronizando todo (una vez)…' : 'Sincronizando todo…')
+    : 'Actualizando (últimos ' + CUTOFF_WINDOW_DIAS + ' días)…';
+  setStatus('<span class="spin"></span>&nbsp;' + msjInicial, '');
 
   try {
     let url = SHEET_URL;
@@ -724,6 +751,8 @@ async function syncFromSheet(mode){
       recentData = fetched.filter(r => esReciente(r, cutoffActual));
       const startRows = calcularStartRows(fetched, cutoffActual);
       saveStartRows(startRows, cutoffActual);
+      const guardadoOk = saveHistorical(historicalData);
+      if (!guardadoOk) console.warn('No se pudo guardar el histórico en localStorage (¿quota llena?). "Actualizar" va a volver a pedir todo la próxima vez.');
     } else {
       // Actualización parcial: reemplazamos SOLO lo reciente por lo que acaba de llegar
       // (que ya viene filtrado desde el corte en adelante); el histórico queda como estaba.
