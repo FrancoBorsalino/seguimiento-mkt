@@ -124,6 +124,7 @@ main { padding: 2rem 2.5rem; }
 .pill { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
 .pill.red { background: rgba(217,72,58,.18); color: #ff7a68; }
 .pill.amber { background: rgba(224,165,38,.18); color: #f0bb4d; }
+.pill.purple { background: rgba(139,92,246,.18); color: #b39ffa; }
 .pill.ok { background: rgba(63,166,107,.15); color: var(--exec); }
 .sede-card .no-alert-txt { font-size: 10px; color: var(--muted); }
 
@@ -141,14 +142,13 @@ main { padding: 2rem 2.5rem; }
 /* LISTADO PRINCIPAL (no contactados / alertas intermedias) */
 .priority-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 1.25rem 1.5rem; margin-bottom: 1.75rem; }
 .priority-header { display:flex; align-items:center; justify-content:space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
-.priority-toggle { display: flex; gap: 6px; }
-.priority-toggle button {
-  background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: var(--font);
-  font-size: 11px; font-weight: 700; padding: .5rem 1rem; border-radius: 4px; cursor: pointer;
-  text-transform: uppercase; letter-spacing: .05em; transition: all .15s;
+.priority-toggle { display: flex; align-items: center; gap: 8px; }
+.priority-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--red); transition: background .15s; }
+.priority-toggle select {
+  background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: var(--font);
+  font-size: 12px; font-weight: 700; padding: .5rem .8rem; border-radius: 4px; cursor: pointer;
+  text-transform: uppercase; letter-spacing: .05em;
 }
-.priority-toggle button.active.red { border-color: var(--red); color: #ff7a68; background: rgba(217,72,58,.1); }
-.priority-toggle button.active.amber { border-color: var(--amber); color: #f0bb4d; background: rgba(224,165,38,.1); }
 .priority-count { font-size: 11px; color: var(--muted); }
 .priority-count b { color: var(--text); }
 
@@ -179,6 +179,7 @@ table.priority-table thead th input[type="checkbox"], table.priority-table tbody
 .status-pill.amber { background: rgba(224,165,38,.18); color: #f0bb4d; }
 .status-pill.green { background: rgba(63,166,107,.15); color: var(--exec); }
 .status-pill.grey { background: rgba(255,255,255,.08); color: var(--muted); }
+.status-pill.purple { background: rgba(139,92,246,.18); color: #b39ffa; }
 
 .btn-export {
   background: transparent; border: 1px solid var(--exec); color: var(--exec); font-family: var(--font);
@@ -200,6 +201,8 @@ table.priority-table thead th input[type="checkbox"], table.priority-table tbody
 
 .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.25rem; }
 .kpi-row.secondary { grid-template-columns: repeat(4, 1fr); margin-top: 10px; }
+.kpi-row.secondary.kpi-row-5 { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 900px) { .kpi-row.secondary.kpi-row-5 { grid-template-columns: repeat(2, 1fr); } }
 .kpi {
   background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 1.1rem 1.3rem;
   position: relative; overflow: hidden; transition: border-color .2s;
@@ -306,8 +309,12 @@ footer span { color: var(--orange); font-weight: 700; }
     <div class="priority-card">
       <div class="priority-header">
         <div class="priority-toggle">
-          <button class="active red" id="btn-toggle-red" onclick="setPriorityView('red')">🔴 No contactados</button>
-          <button class="amber" id="btn-toggle-amber" onclick="setPriorityView('amber')">🟠 Alertas intermedias</button>
+          <span class="priority-dot" id="priority-dot"></span>
+          <select id="priority-view-select" onchange="setPriorityView(this.value)">
+            <option value="no_contactado">No contactados</option>
+            <option value="alertas_intermedias">Alertas intermedias</option>
+            <option value="numero_incorrecto">Número Incorrecto</option>
+          </select>
         </div>
         <input type="text" id="priority-search" placeholder="Buscar por nombre o teléfono…" style="min-width:220px" oninput="renderPriorityTable()">
         <div class="priority-count" id="priority-count"></div>
@@ -345,18 +352,23 @@ footer span { color: var(--orange); font-weight: 700; }
       </div>
     </div>
 
-    <div class="kpi-row secondary">
-      <div class="kpi clickable" onclick="setPriorityView('red')">
+    <div class="kpi-row secondary kpi-row-5">
+      <div class="kpi clickable" onclick="setPriorityView('no_contactado')">
         <div class="kpi-label">🔴 No contactado <span style="opacity:.5">▾</span></div>
         <div class="kpi-val red" id="k-no-contactado">—</div>
         <div class="kpi-sub">alerta activa</div>
       </div>
-      <div class="kpi clickable" onclick="setPriorityView('amber')">
+      <div class="kpi clickable" onclick="setPriorityView('numero_incorrecto')">
+        <div class="kpi-label">Número Incorrecto <span style="opacity:.5">▾</span></div>
+        <div class="kpi-val" style="color:#b39ffa" id="k-numero-incorrecto">—</div>
+        <div class="kpi-sub">dato a corregir</div>
+      </div>
+      <div class="kpi clickable" onclick="setPriorityView('alertas_intermedias')">
         <div class="kpi-label">🟠 Interesado – No responde <span style="opacity:.5">▾</span></div>
         <div class="kpi-val amber" id="k-interesado-nr">—</div>
         <div class="kpi-sub">alerta intermedia</div>
       </div>
-      <div class="kpi clickable" onclick="setPriorityView('amber')">
+      <div class="kpi clickable" onclick="setPriorityView('alertas_intermedias')">
         <div class="kpi-label">🟠 CDP cancelada/sin reagendar <span style="opacity:.5">▾</span></div>
         <div class="kpi-val amber" id="k-cdp">—</div>
         <div class="kpi-sub">alerta intermedia</div>
@@ -419,11 +431,12 @@ function getCutoffDate(){
 }
 
 const ESTADOS_ORDEN = [
-  'no_contactado', 'interesado_no_responde', 'cdp_cancelada',
+  'no_contactado', 'numero_incorrecto', 'interesado_no_responde', 'cdp_cancelada',
   'contactado', 'clase_agendada', 'no_interesado', 'venta_concretada'
 ];
 const ESTADO_LABEL = {
   no_contactado: 'No contactado',
+  numero_incorrecto: 'Número Incorrecto',
   interesado_no_responde: 'Interesado - No responde',
   cdp_cancelada: 'CDP cancelada/sin reagendar',
   contactado: 'Contactado',
@@ -434,6 +447,7 @@ const ESTADO_LABEL = {
 };
 const ESTADO_COLOR = {
   no_contactado: '#D9483A',
+  numero_incorrecto: '#8B5CF6',
   interesado_no_responde: '#E0A526',
   cdp_cancelada: '#E0A526',
   contactado: '#5B9CF6',
@@ -465,7 +479,7 @@ let recentData = [];        // datos desde el corte en adelante, se pisan entero
 let allSedeNames = [];      // todas las sedes detectadas en el sheet, ya ordenadas numéricamente
 let selectedSedes = [];     // sedes elegidas por el usuario (persistidas)
 let currentSede = null;
-let priorityView = 'red';   // 'red' | 'amber'
+let priorityView = 'no_contactado';   // 'no_contactado' | 'alertas_intermedias' | 'numero_incorrecto'
 let hiddenIds = new Set();     // filas ocultadas manualmente — no cuentan para stats ni listados
 let selectedIds = new Set();   // filas tildadas actualmente en la tabla
 Chart.defaults.font.family = "'Roboto', sans-serif";
@@ -474,6 +488,7 @@ Chart.defaults.color = '#9DA5A8';
 function classifyEstado(estadoRaw){
   const e = (estadoRaw || '').trim().toLowerCase();
   if (!e || e.includes('no contactado')) return { cat: 'no_contactado', alert: 'red' };
+  if (e.includes('numero incorrecto') || e.includes('número incorrecto')) return { cat: 'numero_incorrecto', alert: 'incorrecto' };
   if (e.includes('interesado') && e.includes('no responde')) return { cat: 'interesado_no_responde', alert: 'amber' };
   if (e.includes('cdp')) return { cat: 'cdp_cancelada', alert: 'amber' };
   if (e.includes('clase agendada')) return { cat: 'clase_agendada', alert: 'none' };
@@ -934,21 +949,23 @@ function renderOverview(){
   }
   const rows = selectedSedes.map(sede => {
     const data = filteredData(sede);
-    const rojas = data.filter(d => d.alertLevel === 'red').length;
+    const rojas = data.filter(d => d.estadoCat === 'no_contactado').length;
     const ambar = data.filter(d => d.alertLevel === 'amber').length;
-    return { sede, rojas, ambar, total: data.length };
+    const incorrecto = data.filter(d => d.estadoCat === 'numero_incorrecto').length;
+    return { sede, rojas, ambar, incorrecto, total: data.length };
   });
   // orden numérico de sede (1, 2, 3... no alfabético) — según lo pedido
   rows.sort((a,b) => sedeNum(a.sede) - sedeNum(b.sede));
 
   document.getElementById('overview-count').textContent = rows.length + ' sedes';
   grid.innerHTML = rows.map(r => {
-    const hasAlerts = r.rojas > 0 || r.ambar > 0;
+    const hasAlerts = r.rojas > 0 || r.ambar > 0 || r.incorrecto > 0;
     return `<div class="sede-card ${r.sede===currentSede?'selected':''} ${hasAlerts?'':'no-alerts'}" onclick="openSede('${escapeHtml(r.sede).replace(/'/g,"\\'")}')">
       <div class="sede-name" title="${escapeHtml(r.sede)}">${escapeHtml(r.sede)}</div>
       <div class="alert-row">
         ${r.rojas ? `<span class="pill red">🔴 ${r.rojas} no contactados</span>` : ''}
         ${r.ambar ? `<span class="pill amber">🟠 ${r.ambar} interm.</span>` : ''}
+        ${r.incorrecto ? `<span class="pill purple">${r.incorrecto} núm. incorr.</span>` : ''}
         ${!hasAlerts ? `<span class="no-alert-txt">Sin alertas (${r.total})</span>` : ''}
       </div>
     </div>`;
@@ -957,7 +974,9 @@ function renderOverview(){
 
 function openSede(sede){
   currentSede = sede;
-  priorityView = 'red';
+  priorityView = 'no_contactado';
+  document.getElementById('priority-view-select').value = 'no_contactado';
+  document.getElementById('priority-dot').style.background = PRIORITY_VIEW_COLOR.no_contactado;
   renderOverview();
   // Mostramos el panel ANTES de dibujar los gráficos: si el contenedor está oculto (display:none)
   // al momento de crear los charts, Chart.js los calcula con tamaño 0 y quedan en blanco.
@@ -988,6 +1007,7 @@ function renderSede(sede){
   const altoCount = data.filter(d => d.interesNorm === 'alto').length;
   const ventaCount = data.filter(d => d.estadoCat === 'venta_concretada').length;
   const noContactado = data.filter(d => d.estadoCat === 'no_contactado').length;
+  const numeroIncorrecto = data.filter(d => d.estadoCat === 'numero_incorrecto').length;
   const interesadoNr = data.filter(d => d.estadoCat === 'interesado_no_responde').length;
   const cdp = data.filter(d => d.estadoCat === 'cdp_cancelada').length;
   const agendada = data.filter(d => d.estadoCat === 'clase_agendada').length;
@@ -1003,6 +1023,7 @@ function renderSede(sede){
   document.getElementById('k-venta-sub').textContent = total ? Math.round(ventaCount/total*100) + '% de conversión' : '0%';
   document.getElementById('k-tiempo').textContent = noContactadosRows.length ? fmtElapsed({totalMinutes: minProm}) : '—';
   document.getElementById('k-no-contactado').textContent = noContactado;
+  document.getElementById('k-numero-incorrecto').textContent = numeroIncorrecto;
   document.getElementById('k-interesado-nr').textContent = interesadoNr;
   document.getElementById('k-cdp').textContent = cdp;
   document.getElementById('k-agendada').textContent = agendada;
@@ -1016,12 +1037,13 @@ function renderSede(sede){
   renderChartEvolucion(sede);
 }
 
-// ---- Listado prioritario (No contactados / Alertas intermedias) ----
+// ---- Listado prioritario (No contactados / Alertas intermedias / Número Incorrecto) ----
+const PRIORITY_VIEW_COLOR = { no_contactado: 'var(--red)', alertas_intermedias: 'var(--amber)', numero_incorrecto: '#8B5CF6' };
 function setPriorityView(view){
   priorityView = view;
   selectedIds.clear();
-  document.getElementById('btn-toggle-red').classList.toggle('active', view==='red');
-  document.getElementById('btn-toggle-amber').classList.toggle('active', view==='amber');
+  document.getElementById('priority-view-select').value = view;
+  document.getElementById('priority-dot').style.background = PRIORITY_VIEW_COLOR[view] || 'var(--muted)';
   renderPriorityTable();
   document.querySelector('.priority-card').scrollIntoView({behavior:'smooth', block:'start'});
 }
@@ -1032,9 +1054,16 @@ function cleanPhone(tel){
 }
 function statusPillClass(estadoCat){
   if (estadoCat === 'no_contactado') return 'red';
+  if (estadoCat === 'numero_incorrecto') return 'purple';
   if (estadoCat === 'interesado_no_responde' || estadoCat === 'cdp_cancelada') return 'amber';
   if (estadoCat === 'contactado' || estadoCat === 'clase_agendada' || estadoCat === 'venta_concretada') return 'green';
   return 'grey';
+}
+// "Alertas intermedias" agrupa 2 categorías (interesado-no-responde + cdp); las otras vistas
+// son 1 a 1 con su categoría de estado.
+function rowMatchesPriorityView(r, view){
+  if (view === 'alertas_intermedias') return r.alertLevel === 'amber';
+  return r.estadoCat === view;
 }
 
 // Devuelve las filas actualmente visibles en el listado prioritario (según toggle + búsqueda),
@@ -1042,7 +1071,7 @@ function statusPillClass(estadoCat){
 function getPriorityRows(){
   if (!currentSede) return [];
   const data = filteredData(currentSede);
-  let rows = data.filter(d => d.alertLevel === priorityView);
+  let rows = data.filter(d => rowMatchesPriorityView(d, priorityView));
   const q = (document.getElementById('priority-search').value || '').toLowerCase();
   if (q){
     rows = rows.filter(d => (d.nombre||'').toLowerCase().includes(q) || cleanPhone(d.telefono).toLowerCase().includes(q));
@@ -1060,7 +1089,8 @@ function renderPriorityTable(){
 
   const wrap = document.getElementById('priority-table');
   if (!rows.length){
-    wrap.innerHTML = `<p style="font-size:12px;color:var(--muted);padding:1rem 0">No hay contactos en "${priorityView==='red'?'No contactados':'Alertas intermedias'}" para este período. Todo al día.</p>`;
+    const viewLabels = { no_contactado: 'No contactados', alertas_intermedias: 'Alertas intermedias', numero_incorrecto: 'Número Incorrecto' };
+    wrap.innerHTML = `<p style="font-size:12px;color:var(--muted);padding:1rem 0">No hay contactos en "${viewLabels[priorityView] || priorityView}" para este período. Todo al día.</p>`;
     return;
   }
 
@@ -1390,7 +1420,7 @@ function renderChartEvolucion(sede){
 }
 
 // Estado inicial
-console.log('%cCORE · Seguimiento de Interesados — build 2026-08-27-v8 (enviar a otro chat / grupo)', 'color:#FF5C33;font-weight:bold');
+console.log('%cCORE · Seguimiento de Interesados — build 2026-08-27-v9 (desplegable de vista + Número Incorrecto)', 'color:#FF5C33;font-weight:bold');
 selectedSedes = loadSelectedSedes();
 renderOverview();
 </script>
