@@ -314,6 +314,7 @@ footer span { color: var(--orange); font-weight: 700; }
         <button class="btn-reset" id="btn-hide" onclick="hideSelected()" disabled>Ocultar seleccionadas</button>
         <button class="btn-reset" id="btn-restore" onclick="restoreHidden()" style="display:none"></button>
         <button class="btn-alert" id="btn-alert" onclick="alertarSede()">Alertar a sede</button>
+        <button class="btn-alert" id="btn-alert-otro" onclick="alertarOtroChat()" title="Te deja elegir a qué chat mandarlo (ej: un grupo interno)">Enviar a otro chat</button>
         <button class="btn-export" id="btn-export" onclick="exportExcel()">Exportar Excel</button>
       </div>
       <div class="priority-table-wrap" id="priority-table"></div>
@@ -1144,30 +1145,21 @@ function restoreHidden(){
 
 // ---- Exportar a Excel con formato CORE ----
 // ---- Alertar a sede por WhatsApp ----
-function alertarSede(){
-  if (!currentSede) return;
-  const num = sedeNum(currentSede);
-  const telefono = PHONES_BY_SEDE_NUM[num];
-  if (!telefono){
-    alert('Todavía no tengo el teléfono de WhatsApp de esta sede cargado. Pasámelo y lo agrego.');
-    return;
-  }
-
+// Arma el texto del mensaje (tildadas, o si no hay nada tildado, todo lo visible). Devuelve
+// null si no hay nada para mandar (y ya se encargó de avisar con el alert correspondiente).
+function armarMensajeAlerta(){
   const allRows = getPriorityRows();
   const selectedVisible = allRows.filter(r => selectedIds.has(r._id));
   const rows = selectedVisible.length ? selectedVisible : allRows;
 
   if (!rows.length){
     alert('No hay contactos para incluir en el mensaje.');
-    return;
+    return null;
   }
 
-  // OJO: nada de confirm()/alert() acá abajo antes del window.open — cualquier diálogo
-  // bloqueante entre el click y el window.open hace que el navegador lo trate como si no
-  // viniera de una acción directa del usuario, y bloquea la apertura de la pestaña.
   const MAX_CONTACTOS = 25;
   if (rows.length > MAX_CONTACTOS){
-    console.warn('Alertar a sede: se están mandando ' + rows.length + ' contactos en un solo mensaje, puede que quede muy largo para WhatsApp.');
+    console.warn('Alertar: se están mandando ' + rows.length + ' contactos en un solo mensaje, puede que quede muy largo para WhatsApp.');
   }
 
   const listado = rows.map(r =>
@@ -1177,12 +1169,34 @@ function alertarSede(){
     ' | Tiempo sin respuesta: ' + fmtElapsed(r.elapsed)
   ).join('\n');
 
-  const mensaje =
-    'Equipo! Les dejo los últimos interesados que ingresaron desde instagram y todavía no fueron contactados. Por favor, envíenles el primer mensaje lo antes posible.\n\n' +
+  return 'Equipo! Les dejo los últimos interesados que ingresaron desde instagram y todavía no fueron contactados. Por favor, envíenles el primer mensaje lo antes posible.\n\n' +
     listado +
     '\n\nRecuerden que hay que revisar la planilla cada 15, 20\' y mantenerla actualizada.\n\nMuchas gracias!';
+}
 
+function alertarSede(){
+  if (!currentSede) return;
+  const num = sedeNum(currentSede);
+  const telefono = PHONES_BY_SEDE_NUM[num];
+  if (!telefono){
+    alert('Todavía no tengo el teléfono de WhatsApp de esta sede cargado. Pasámelo y lo agrego.');
+    return;
+  }
+  // OJO: nada de confirm()/alert() acá abajo antes del window.open — cualquier diálogo
+  // bloqueante entre el click y el window.open hace que el navegador lo trate como si no
+  // viniera de una acción directa del usuario, y bloquea la apertura de la pestaña.
+  const mensaje = armarMensajeAlerta();
+  if (!mensaje) return;
   const url = 'https://wa.me/' + telefono + '?text=' + encodeURIComponent(mensaje);
+  window.open(url, '_blank');
+}
+
+// Sin número: WhatsApp te deja elegir a qué chat mandarlo (contacto O grupo, cualquiera
+// de los tuyos) — para casos como un grupo interno del equipo, que no tiene un link directo.
+function alertarOtroChat(){
+  const mensaje = armarMensajeAlerta();
+  if (!mensaje) return;
+  const url = 'https://wa.me/?text=' + encodeURIComponent(mensaje);
   window.open(url, '_blank');
 }
 
@@ -1376,7 +1390,7 @@ function renderChartEvolucion(sede){
 }
 
 // Estado inicial
-console.log('%cCORE · Seguimiento de Interesados — build 2026-08-27-v7 (sin confirm antes de abrir WhatsApp)', 'color:#FF5C33;font-weight:bold');
+console.log('%cCORE · Seguimiento de Interesados — build 2026-08-27-v8 (enviar a otro chat / grupo)', 'color:#FF5C33;font-weight:bold');
 selectedSedes = loadSelectedSedes();
 renderOverview();
 </script>
