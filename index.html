@@ -55,6 +55,7 @@ header {
   background: var(--bg2); border-bottom: 1px solid var(--border); padding: .6rem 2.5rem;
   display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; position: relative;
 }
+.sync-bar.resp-subbar { background: transparent; padding: .8rem 2.5rem .2rem; border-bottom: none; }
 .btn-sync {
   background: var(--orange); border: none; color: white; font-family: var(--font); font-size: 11px;
   font-weight: 700; text-transform: uppercase; letter-spacing: .1em; padding: .45rem 1.1rem;
@@ -274,8 +275,6 @@ footer span { color: var(--orange); font-weight: 700; }
   <button class="top-tab" id="tab-respuestas" onclick="switchTopTab('respuestas')">Tiempos de Respuesta</button>
 </div>
 
-<div id="view-seguimiento" class="top-view">
-
 <div class="sync-bar">
   <button class="btn-sync" id="btn-sync" onclick="syncFromSheet('auto')">Actualizar</button>
   <button class="btn-reset" id="btn-full-sync" onclick="syncFromSheet('full')">Sincronizar todo</button>
@@ -300,8 +299,10 @@ footer span { color: var(--orange); font-weight: 700; }
     <button class="btn-reset" onclick="resetFilters()">Reset</button>
   </div>
 </div>
-<div class="sync-hint">"Sincronizar todo" trae el historial completo (más lento). "Actualizar" solo relee los contactos de los últimos 90 días y es la opción para el uso diario.</div>
+<div class="sync-hint">"Sincronizar todo" trae el historial completo (más lento). "Actualizar" solo relee los contactos de los últimos 90 días y es la opción para el uso diario. El selector de sedes de acá arriba también se usa para filtrar la pestaña "Tiempos de Respuesta".</div>
 
+
+<div id="view-seguimiento" class="top-view">
 
 <main>
 
@@ -425,11 +426,11 @@ footer span { color: var(--orange); font-weight: 700; }
 </div><!-- /view-seguimiento -->
 
 <div id="view-respuestas" class="top-view" style="display:none">
-  <div class="sync-bar">
+  <div class="sync-bar resp-subbar">
     <button class="btn-sync" id="btn-sync-resp" onclick="syncRespuestas()">Actualizar tiempos de respuesta</button>
     <span class="sync-status" id="sync-status-resp">Sin datos todavía</span>
   </div>
-  <div class="sync-hint">Mide cuánto tardó cada sede en dar el primer paso (cambiar el estado desde "No contactado"/"Sin cargar"/"Número Incorrecto" a cualquier otra cosa), contando solo horario de atención — usa el registro que arma Tracking.gs cada vez que cambia un estado. Esto es distinto del "tiempo sin contactar" de la otra pestaña: acá solo entran los que YA fueron resueltos.</div>
+  <div class="sync-hint">Mide cuánto tardó cada sede en dar el primer paso (cambiar el estado desde "No contactado"/"Sin cargar"/"Número Incorrecto" a cualquier otra cosa), contando solo horario de atención — usa el registro que arma Tracking.gs cada vez que cambia un estado. Esto es distinto del "tiempo sin contactar" de la otra pestaña: acá solo entran los que YA fueron resueltos. El filtro de sedes de arriba de todo también aplica acá.</div>
 
   <main>
     <div class="kpi-row" id="resp-kpi-row" style="margin-top:2rem">
@@ -729,6 +730,7 @@ function onSedeCheck(sede, checked){
   } else {
     renderOverview();
   }
+  refreshRespuestasIfLoaded();
 }
 function selectAllSedes(){
   selectedSedes = sortSedesNumeric(allSedeNames.slice());
@@ -736,6 +738,7 @@ function selectAllSedes(){
   updateSedePickerCount();
   renderSedePickerList();
   renderOverview();
+  refreshRespuestasIfLoaded();
 }
 function clearAllSedes(){
   selectedSedes = [];
@@ -744,6 +747,12 @@ function clearAllSedes(){
   renderSedePickerList();
   renderOverview();
   closeSede();
+  refreshRespuestasIfLoaded();
+}
+// La vista de Tiempos de Respuesta comparte el selector de sedes de arriba de todo; si ya
+// tiene datos cargados, la refrescamos cuando cambia la selección (sin obligar a re-sincronizar).
+function refreshRespuestasIfLoaded(){
+  if (typeof respuestasData !== 'undefined' && respuestasData.length) renderRespuestas();
 }
 function updateSedePickerCount(){
   document.getElementById('sede-picker-count').textContent = selectedSedes.length;
@@ -1635,7 +1644,7 @@ function renderRespTablaDetalle(rows){
 }
 
 // Estado inicial
-console.log('%cCORE · Seguimiento de Interesados — build 2026-08-27-v10 (pestaña Tiempos de Respuesta)', 'color:#FF5C33;font-weight:bold');
+console.log('%cCORE · Seguimiento de Interesados — build 2026-08-27-v11 (filtros de sede compartidos entre pestañas)', 'color:#FF5C33;font-weight:bold');
 selectedSedes = loadSelectedSedes();
 renderOverview();
 </script>
