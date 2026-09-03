@@ -295,6 +295,8 @@ footer span { color: var(--orange); font-weight: 700; }
   <button class="top-tab" id="tab-respuestas" onclick="switchTopTab('respuestas')">Tiempos de Respuesta</button>
 </div>
 
+<div id="view-seguimiento" class="top-view">
+
 <div class="sync-bar">
   <button class="btn-sync" id="btn-sync" onclick="syncFromSheet('auto')">Actualizar</button>
   <button class="btn-reset" id="btn-full-sync" onclick="syncFromSheet('full')">Sincronizar todo</button>
@@ -319,10 +321,8 @@ footer span { color: var(--orange); font-weight: 700; }
     <button class="btn-reset" onclick="resetFilters()">Reset</button>
   </div>
 </div>
-<div class="sync-hint">"Sincronizar todo" trae el historial completo (más lento). "Actualizar" solo relee los contactos de los últimos 90 días y es la opción para el uso diario. El selector de sedes de acá arriba también se usa para filtrar la pestaña "Tiempos de Respuesta".</div>
+<div class="sync-hint">"Sincronizar todo" trae el historial completo (más lento). "Actualizar" solo relee los contactos de los últimos 90 días y es la opción para el uso diario.</div>
 
-
-<div id="view-seguimiento" class="top-view">
 
 <main>
 
@@ -1888,7 +1888,7 @@ async function exportRespExcel(){
 document.getElementById('resp-search') && document.getElementById('resp-search').addEventListener('input', () => renderRespTablaDetalle());
 
 // Estado inicial
-console.log('%cCORE · Seguimiento de Interesados — build 2026-09-03-v12 (Tiempos de Respuesta: filtros propios, selección, ocultar, export, % por resultado)', 'color:#FF5C33;font-weight:bold');
+console.log('%cCORE · Seguimiento de Interesados — build 2026-09-03-v13 (filtros de cada pestaña separados, no compartidos)', 'color:#FF5C33;font-weight:bold');
 selectedSedes = loadSelectedSedes();
 renderOverview();
 </script>
