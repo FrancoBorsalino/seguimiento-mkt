@@ -59,9 +59,10 @@ header {
 
 .resp-filter-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: 0 0 .5rem; }
 
-.resp-table-wrap { overflow-x: auto; }
+.detail-table-wrap { overflow-x: auto; overflow-y: auto; }
 table.resp-table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: auto; }
 table.resp-table thead th {
+  position: sticky; top: 0; background: var(--bg2); z-index: 1;
   text-align: left; padding: 7px 10px; color: var(--muted); font-weight: 700; text-transform: uppercase;
   letter-spacing: .04em; font-size: 9px; border-bottom: 1px solid var(--border); white-space: nowrap;
 }
@@ -505,7 +506,7 @@ footer span { color: var(--orange); font-weight: 700; }
     </div>
 
     <div class="card full" style="margin-top:1.25rem">
-      <div class="toggle-wrap">
+      <div class="priority-header">
         <div class="card-title" style="margin-bottom:0">Detalle</div>
         <input type="text" id="resp-search" placeholder="Buscar por nombre o teléfono…" style="min-width:220px">
         <div class="priority-count" id="resp-count"></div>
@@ -1731,7 +1732,7 @@ function renderRespTablaSedes(rows){
     <td class="wait-badge ${s.promedio>240?'crit':(s.promedio>60?'warn':'ok')}">${fmtElapsed({totalMinutes:s.promedio})}</td>
     <td>${fmtElapsed({totalMinutes:s.mediana})}</td>
   </tr>`).join('') + '</tbody>';
-  wrap.innerHTML = `<div class="resp-table-wrap"><table class="resp-table">${head}${body}</table></div>`;
+  wrap.innerHTML = `<table class="resp-table">${head}${body}</table>`;
 }
 
 // ---- Selección / ocultar / búsqueda en el detalle ----
@@ -1770,7 +1771,7 @@ function renderRespTablaDetalle(rows){
     <td class="wait-badge ${r.minutos>240?'crit':(r.minutos>60?'warn':'ok')}">${fmtElapsed({totalMinutes:r.minutos})}</td>
   </tr>`;
   }).join('') + '</tbody>';
-  wrap.innerHTML = `<div class="resp-table-wrap"><table class="resp-table">${head}${body}</table></div>`;
+  wrap.innerHTML = `<table class="resp-table">${head}${body}</table>`;
   if (detailRows.length > 300){
     wrap.innerHTML += `<p style="font-size:11px;color:var(--muted);padding:.5rem 0">Mostrando los 300 casos más lentos de ${detailRows.length} totales.</p>`;
   }
@@ -1888,7 +1889,7 @@ async function exportRespExcel(){
 document.getElementById('resp-search') && document.getElementById('resp-search').addEventListener('input', () => renderRespTablaDetalle());
 
 // Estado inicial
-console.log('%cCORE · Seguimiento de Interesados — build 2026-09-03-v13 (filtros de cada pestaña separados, no compartidos)', 'color:#FF5C33;font-weight:bold');
+console.log('%cCORE · Seguimiento de Interesados — build 2026-09-03-v14 (fix: tablas de respuesta sin desbordar + header prolijo)', 'color:#FF5C33;font-weight:bold');
 selectedSedes = loadSelectedSedes();
 renderOverview();
 </script>
