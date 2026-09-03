@@ -42,6 +42,15 @@ header {
 .header-title { font-size: 13px; font-weight: 300; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; }
 .header-title strong { color: var(--white); font-weight: 500; }
 
+.top-tabs { display: flex; gap: 0; background: #111111; padding: 0 2.5rem; border-bottom: 1px solid var(--border); }
+.top-tab {
+  background: transparent; border: none; color: var(--muted); font-family: var(--font);
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  padding: .8rem 1.2rem; cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s;
+}
+.top-tab:hover { color: var(--text); }
+.top-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+
 .sync-bar {
   background: var(--bg2); border-bottom: 1px solid var(--border); padding: .6rem 2.5rem;
   display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; position: relative;
@@ -260,6 +269,13 @@ footer span { color: var(--orange); font-weight: 700; }
   </div>
 </header>
 
+<div class="top-tabs">
+  <button class="top-tab active" id="tab-seguimiento" onclick="switchTopTab('seguimiento')">Seguimiento</button>
+  <button class="top-tab" id="tab-respuestas" onclick="switchTopTab('respuestas')">Tiempos de Respuesta</button>
+</div>
+
+<div id="view-seguimiento" class="top-view">
+
 <div class="sync-bar">
   <button class="btn-sync" id="btn-sync" onclick="syncFromSheet('auto')">Actualizar</button>
   <button class="btn-reset" id="btn-full-sync" onclick="syncFromSheet('full')">Sincronizar todo</button>
@@ -406,6 +422,57 @@ footer span { color: var(--orange); font-weight: 700; }
 
 </main>
 
+</div><!-- /view-seguimiento -->
+
+<div id="view-respuestas" class="top-view" style="display:none">
+  <div class="sync-bar">
+    <button class="btn-sync" id="btn-sync-resp" onclick="syncRespuestas()">Actualizar tiempos de respuesta</button>
+    <span class="sync-status" id="sync-status-resp">Sin datos todavía</span>
+  </div>
+  <div class="sync-hint">Mide cuánto tardó cada sede en dar el primer paso (cambiar el estado desde "No contactado"/"Sin cargar"/"Número Incorrecto" a cualquier otra cosa), contando solo horario de atención — usa el registro que arma Tracking.gs cada vez que cambia un estado. Esto es distinto del "tiempo sin contactar" de la otra pestaña: acá solo entran los que YA fueron resueltos.</div>
+
+  <main>
+    <div class="kpi-row" id="resp-kpi-row" style="margin-top:2rem">
+      <div class="kpi">
+        <div class="kpi-label">Respuestas registradas</div>
+        <div class="kpi-val" id="r-total">—</div>
+        <div class="kpi-sub" id="r-total-sub">&nbsp;</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Tiempo prom. de 1ª respuesta</div>
+        <div class="kpi-val orange" id="r-promedio">—</div>
+        <div class="kpi-sub">horario laboral</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Mediana de 1ª respuesta</div>
+        <div class="kpi-val" id="r-mediana">—</div>
+        <div class="kpi-sub">horario laboral</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Dentro del objetivo (≤20min)</div>
+        <div class="kpi-val green" id="r-objetivo">—</div>
+        <div class="kpi-sub" id="r-objetivo-sub">&nbsp;</div>
+      </div>
+    </div>
+
+    <div class="charts-grid" style="margin-top:1.25rem">
+      <div class="card">
+        <div class="card-title">Distribución del tiempo de 1ª respuesta</div>
+        <div class="chart-wrap h240"><canvas id="c-resp-dist"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Ranking por sede (peor a mejor)</div>
+        <div class="detail-table-wrap" id="resp-tabla-sedes" style="max-height:280px"></div>
+      </div>
+    </div>
+
+    <div class="card full" style="margin-top:1.25rem">
+      <div class="card-title">Detalle</div>
+      <div class="detail-table-wrap" id="resp-tabla-detalle" style="max-height:480px"></div>
+    </div>
+  </main>
+</div><!-- /view-respuestas -->
+
 <footer>
   <span>CORE</span> · Seguimiento de Interesados · Marketing · datos en tiempo real desde Google Sheets
 </footer>
@@ -414,7 +481,7 @@ footer span { color: var(--orange); font-weight: 700; }
 // ====================== CONFIG ======================
 // Pegá acá la URL de tu Apps Script (Implementar > Nueva implementación > Aplicación web),
 // la misma lógica que usamos en Mantenimiento. Ver Code.gs adjunto para el código a instalar.
-const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxgMoSGfMWu4mbSQdsJlI2vctNvub06wr38mi-ChYJ4nhdQ5Aeyga8db5ClW_CAEgDwdw/exec';
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbwqXgkp41vGPqLT0dCo5Vm0aWbXycPUWr4x80Leex40BLuqmETzaTKbmoTCtB05OTKQ4A/exec';
 const STORAGE_KEY = 'core_marketing_selected_sedes_v1';
 const STARTROWS_KEY = 'core_marketing_startrows_v1';
 const HISTORICAL_KEY = 'core_marketing_historical_v1';
@@ -1419,8 +1486,156 @@ function renderChartEvolucion(sede){
   });
 }
 
+// ====================== TIEMPOS DE RESPUESTA (pestaña nueva, separada) ======================
+let respuestasData = [];
+let respCharts = {};
+
+function switchTopTab(tab){
+  document.getElementById('tab-seguimiento').classList.toggle('active', tab==='seguimiento');
+  document.getElementById('tab-respuestas').classList.toggle('active', tab==='respuestas');
+  document.getElementById('view-seguimiento').style.display = tab==='seguimiento' ? '' : 'none';
+  document.getElementById('view-respuestas').style.display = tab==='respuestas' ? '' : 'none';
+  if (tab === 'respuestas' && !respuestasData.length) syncRespuestas();
+}
+
+async function syncRespuestas(){
+  const btn = document.getElementById('btn-sync-resp');
+  if (SHEET_URL === 'PEGA_ACA_TU_URL_DE_APPS_SCRIPT'){
+    setRespStatus('Falta configurar SHEET_URL en el código del dashboard', 'err');
+    return;
+  }
+  btn.disabled = true;
+  setRespStatus('<span class="spin"></span>&nbsp;Actualizando…', '');
+  try {
+    const url = SHEET_URL + (SHEET_URL.includes('?') ? '&' : '?') + 'tipo=respuestas';
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || 'Respuesta inesperada');
+    respuestasData = (json.data || []).map(r => {
+      const ingreso = r.fechaIngreso ? new Date(r.fechaIngreso) : null;
+      const cambio = r.fechaCambio ? new Date(r.fechaCambio) : null;
+      const minutos = (ingreso && cambio) ? businessMinutesElapsed(ingreso, cambio, r.sede) : null;
+      return { ...r, ingreso, cambio, minutos };
+    }).filter(r => r.minutos !== null);
+    const now = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
+    setRespStatus(respuestasData.length + ' respuestas registradas · ' + now, 'ok');
+    renderRespuestas();
+  } catch(e){
+    setRespStatus('Error: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+function setRespStatus(html, cls){
+  const el = document.getElementById('sync-status-resp');
+  el.innerHTML = html;
+  el.className = 'sync-status ' + (cls || '');
+}
+
+function respuestasFiltradas(){
+  // Respeta la misma selección de sedes que la pestaña de Seguimiento, si hay alguna elegida.
+  if (!selectedSedes.length) return respuestasData;
+  return respuestasData.filter(r => selectedSedes.includes(r.sede));
+}
+
+function mediana(nums){
+  if (!nums.length) return 0;
+  const sorted = nums.slice().sort((a,b)=>a-b);
+  const mid = Math.floor(sorted.length/2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid-1]+sorted[mid])/2;
+}
+
+function renderRespuestas(){
+  const rows = respuestasFiltradas();
+  const minutos = rows.map(r => r.minutos);
+
+  document.getElementById('r-total').textContent = rows.length;
+  document.getElementById('r-total-sub').textContent = selectedSedes.length ? selectedSedes.length + ' sede' + (selectedSedes.length===1?'':'s') + ' seleccionada' + (selectedSedes.length===1?'':'s') : 'todas las sedes';
+
+  const prom = minutos.length ? minutos.reduce((a,b)=>a+b,0)/minutos.length : null;
+  document.getElementById('r-promedio').textContent = prom!==null ? fmtElapsed({totalMinutes: prom}) : '—';
+
+  const med = minutos.length ? mediana(minutos) : null;
+  document.getElementById('r-mediana').textContent = med!==null ? fmtElapsed({totalMinutes: med}) : '—';
+
+  const dentroObjetivo = minutos.filter(m => m <= 20).length;
+  document.getElementById('r-objetivo').textContent = dentroObjetivo;
+  document.getElementById('r-objetivo-sub').textContent = rows.length ? Math.round(dentroObjetivo/rows.length*100) + '% del total' : '\u00A0';
+
+  renderRespDistChart(minutos);
+  renderRespTablaSedes(rows);
+  renderRespTablaDetalle(rows);
+}
+
+function renderRespDistChart(minutos){
+  const ctx = document.getElementById('c-resp-dist');
+  ctx.parentElement.innerHTML = '<canvas id="c-resp-dist"></canvas>';
+  const ctx2 = document.getElementById('c-resp-dist');
+  if (respCharts.dist) { respCharts.dist.destroy(); respCharts.dist = null; }
+  if (!minutos.length){ ctx2.parentElement.innerHTML = '<div class="empty-chart">Todavía no hay respuestas registradas</div>'; return; }
+  const buckets = [
+    { label: '≤ 20 min', min:0, max:20 },
+    { label: '20-60 min', min:20, max:60 },
+    { label: '1-4 hs', min:60, max:240 },
+    { label: '4-24 hs', min:240, max:1440 },
+    { label: '+24 hs', min:1440, max:Infinity }
+  ];
+  const counts = buckets.map(b => minutos.filter(m => m >= b.min && m < b.max).length);
+  respCharts.dist = new Chart(ctx2, {
+    type: 'bar',
+    data: { labels: buckets.map(b=>b.label), datasets: [{ data: counts, backgroundColor: ['#3FA66B','#8FCB9E','#E0A526','#E0784A','#D9483A'], borderRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero:true, grid: { color: 'rgba(255,255,255,.06)' }, ticks:{precision:0} }, x: { grid: { display:false } } }
+    }
+  });
+}
+
+function renderRespTablaSedes(rows){
+  const bySede = {};
+  rows.forEach(r => { (bySede[r.sede] = bySede[r.sede] || []).push(r.minutos); });
+  const sedes = Object.keys(bySede).map(sede => {
+    const mins = bySede[sede];
+    const prom = mins.reduce((a,b)=>a+b,0)/mins.length;
+    return { sede, cantidad: mins.length, promedio: prom, mediana: mediana(mins) };
+  });
+  sedes.sort((a,b) => b.promedio - a.promedio); // peor (más lento) primero
+  const wrap = document.getElementById('resp-tabla-sedes');
+  if (!sedes.length){ wrap.innerHTML = '<p style="font-size:12px;color:var(--muted);padding:1rem 0">Sin datos.</p>'; return; }
+  const head = `<thead><tr><th>Sede</th><th>Cant.</th><th>Promedio</th><th>Mediana</th></tr></thead>`;
+  const body = '<tbody>' + sedes.map(s => `<tr>
+    <td>${escapeHtml(s.sede)}</td>
+    <td>${s.cantidad}</td>
+    <td class="wait-badge ${s.promedio>240?'crit':(s.promedio>60?'warn':'ok')}">${fmtElapsed({totalMinutes:s.promedio})}</td>
+    <td>${fmtElapsed({totalMinutes:s.mediana})}</td>
+  </tr>`).join('') + '</tbody>';
+  wrap.innerHTML = `<table class="priority-table">${head}${body}</table>`;
+}
+
+function renderRespTablaDetalle(rows){
+  const sorted = rows.slice().sort((a,b) => b.minutos - a.minutos); // los más lentos arriba
+  const wrap = document.getElementById('resp-tabla-detalle');
+  if (!sorted.length){ wrap.innerHTML = '<p style="font-size:12px;color:var(--muted);padding:1rem 0">Sin datos todavía. En cuanto los profes empiecen a cambiar estados, va a ir apareciendo acá.</p>'; return; }
+  const head = `<thead><tr><th>Sede</th><th>Nombre</th><th>Teléfono</th><th>Ingreso</th><th>Cambió a</th><th>Cuándo</th><th>Demora</th></tr></thead>`;
+  const body = '<tbody>' + sorted.slice(0,300).map(r => `<tr>
+    <td>${escapeHtml(r.sede)}</td>
+    <td>${escapeHtml(r.nombre)}</td>
+    <td>${escapeHtml(cleanPhone(r.telefono))}</td>
+    <td>${fmtDate(r.ingreso ? r.ingreso.toISOString() : null)}</td>
+    <td><span class="status-pill ${statusPillClass(classifyEstado(r.estado).cat)}">${escapeHtml(r.estado)}</span></td>
+    <td>${fmtDate(r.cambio ? r.cambio.toISOString() : null)}</td>
+    <td class="wait-badge ${r.minutos>240?'crit':(r.minutos>60?'warn':'ok')}">${fmtElapsed({totalMinutes:r.minutos})}</td>
+  </tr>`).join('') + '</tbody>';
+  wrap.innerHTML = `<table class="priority-table">${head}${body}</table>`;
+  if (sorted.length > 300){
+    wrap.innerHTML += `<p style="font-size:11px;color:var(--muted);padding:.5rem 0">Mostrando los 300 casos más lentos de ${sorted.length} totales.</p>`;
+  }
+}
+
 // Estado inicial
-console.log('%cCORE · Seguimiento de Interesados — build 2026-08-27-v9 (desplegable de vista + Número Incorrecto)', 'color:#FF5C33;font-weight:bold');
+console.log('%cCORE · Seguimiento de Interesados — build 2026-08-27-v10 (pestaña Tiempos de Respuesta)', 'color:#FF5C33;font-weight:bold');
 selectedSedes = loadSelectedSedes();
 renderOverview();
 </script>
