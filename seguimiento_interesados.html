@@ -1,0 +1,1644 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seguimiento de Interesados · Marketing · CORE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@700&family=Roboto:wght@300;400;500;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+:root {
+  --orange:  #FF5C33;
+  --dark:    #333333;
+  --mid:     #474747;
+  --grey:    #9DA5A8;
+  --light:   #C9D1D3;
+  --white:   #FFFFFF;
+  --bg:      #1a1a1a;
+  --bg2:     #242424;
+  --bg3:     #2e2e2e;
+  --border:  rgba(255,255,255,0.08);
+  --text:    #F0EEEA;
+  --muted:   #9DA5A8;
+  --exec:    #4CAF7D;
+  --font:    'Roboto', sans-serif;
+  --green:   #3FA66B;
+  --amber:   #E0A526;
+  --red:     #D9483A;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; min-height: 100vh; }
+
+header {
+  background: #111111; border-bottom: 2px solid var(--orange); padding: 0 2.5rem;
+  display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 1rem;
+}
+.header-left { display: flex; align-items: center; gap: 1.25rem; }
+.logo-text { font-family: 'Poppins', sans-serif; font-size: 22px; font-weight: 700; color: white; letter-spacing: .05em; line-height: 1; }
+.header-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.15); }
+.header-title { font-size: 13px; font-weight: 300; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; }
+.header-title strong { color: var(--white); font-weight: 500; }
+
+.top-tabs { display: flex; gap: 0; background: #111111; padding: 0 2.5rem; border-bottom: 1px solid var(--border); }
+.top-tab {
+  background: transparent; border: none; color: var(--muted); font-family: var(--font);
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  padding: .8rem 1.2rem; cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s;
+}
+.top-tab:hover { color: var(--text); }
+.top-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+
+.sync-bar {
+  background: var(--bg2); border-bottom: 1px solid var(--border); padding: .6rem 2.5rem;
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; position: relative;
+}
+.btn-sync {
+  background: var(--orange); border: none; color: white; font-family: var(--font); font-size: 11px;
+  font-weight: 700; text-transform: uppercase; letter-spacing: .1em; padding: .45rem 1.1rem;
+  border-radius: 4px; cursor: pointer; transition: opacity .2s; display: flex; align-items: center; gap: 6px;
+}
+.btn-sync:hover { opacity: .85; }
+.btn-sync:disabled { opacity: .4; cursor: not-allowed; }
+.sync-status { font-size: 11px; color: var(--muted); letter-spacing: .04em; }
+.sync-hint { font-size: 10.5px; color: var(--muted); opacity: .75; padding: .4rem 2.5rem; background: var(--bg2); border-bottom: 1px solid var(--border); }
+.sync-status.ok  { color: var(--exec); }
+.sync-status.err { color: #ff6b6b; }
+.spin { display: inline-block; width: 10px; height: 10px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.filter-group { display: flex; align-items: center; gap: .5rem; margin-left: auto; flex-wrap: wrap; }
+.filter-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; font-weight: 500; }
+select, input[type="text"] {
+  background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: var(--font);
+  font-size: 11px; padding: .38rem .7rem; border-radius: 4px; outline: none; cursor: pointer; color-scheme: dark;
+}
+.btn-reset {
+  background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: var(--font);
+  font-size: 11px; text-transform: uppercase; letter-spacing: .07em; padding: .4rem .8rem; border-radius: 4px;
+  cursor: pointer; transition: all .15s;
+}
+.btn-reset:hover { border-color: var(--orange); color: var(--orange); }
+
+/* SEDE PICKER (dropdown) */
+.sede-picker { position: relative; }
+.btn-sede-picker {
+  background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: var(--font);
+  font-size: 11px; padding: .4rem .8rem; border-radius: 4px; cursor: pointer; display:flex; align-items:center; gap:6px;
+}
+.btn-sede-picker:hover { border-color: var(--orange); }
+.btn-sede-picker .n { background: var(--orange); color: #fff; font-weight:700; border-radius: 10px; padding: 1px 6px; font-size: 10px; }
+.sede-picker-panel {
+  display: none; position: absolute; top: calc(100% + 6px); left: 0; z-index: 50;
+  background: #1d1d1d; border: 1px solid var(--border); border-radius: 6px; width: 300px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.4); padding: 10px;
+}
+.sede-picker-panel.open { display: block; }
+.sede-picker-panel input[type="text"] { width: 100%; margin-bottom: 8px; }
+.sede-picker-actions { display:flex; gap:6px; margin-bottom:8px; }
+.sede-picker-actions button {
+  flex:1; background: transparent; border: 1px solid var(--border); color: var(--muted); font-size: 10px;
+  padding: .3rem .5rem; border-radius: 4px; cursor: pointer; text-transform: uppercase; letter-spacing:.04em;
+}
+.sede-picker-actions button:hover { border-color: var(--orange); color: var(--orange); }
+.sede-picker-list { max-height: 280px; overflow-y: auto; }
+.sede-picker-item { display: flex; align-items: center; gap: 8px; padding: 5px 4px; font-size: 12px; cursor: pointer; border-radius: 4px; }
+.sede-picker-item:hover { background: rgba(255,255,255,.04); }
+.sede-picker-item input { cursor: pointer; }
+
+main { padding: 2rem 2.5rem; }
+
+.section-title {
+  font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .1em; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;
+}
+.section-title .count-badge { background: var(--bg3); color: var(--text); border-radius: 10px; padding: 1px 8px; font-size: 10px; }
+
+/* OVERVIEW GRID */
+.overview-wrap { margin-bottom: 2rem; }
+.overview-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px;
+}
+.sede-card {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: .8rem 1rem;
+  cursor: pointer; transition: border-color .15s, transform .1s; position: relative;
+}
+.sede-card:hover { border-color: rgba(255,255,255,.2); transform: translateY(-1px); }
+.sede-card.selected { border-color: var(--orange); background: linear-gradient(135deg, var(--bg2) 60%, rgba(255,92,51,.08)); }
+.sede-card.no-alerts { opacity: .6; }
+.sede-card .sede-name { font-size: 12px; font-weight: 500; color: var(--text); margin-bottom: .5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sede-card .alert-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+.pill.red { background: rgba(217,72,58,.18); color: #ff7a68; }
+.pill.amber { background: rgba(224,165,38,.18); color: #f0bb4d; }
+.pill.purple { background: rgba(139,92,246,.18); color: #b39ffa; }
+.pill.ok { background: rgba(63,166,107,.15); color: var(--exec); }
+.sede-card .no-alert-txt { font-size: 10px; color: var(--muted); }
+
+.empty-hint { font-size: 12px; color: var(--muted); padding: 2rem; text-align: center; background: var(--bg2); border: 1px dashed var(--border); border-radius: 6px; }
+
+/* SEDE DETAIL */
+#sede-detail { display: none; }
+#sede-detail.open { display: block; }
+.sede-header {
+  display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 8px;
+}
+.sede-header h2 { font-family: 'Poppins', sans-serif; font-size: 20px; color: var(--white); }
+.sede-header .sub { font-size: 12px; color: var(--muted); }
+
+/* LISTADO PRINCIPAL (no contactados / alertas intermedias) */
+.priority-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 1.25rem 1.5rem; margin-bottom: 1.75rem; }
+.priority-header { display:flex; align-items:center; justify-content:space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.priority-toggle { display: flex; align-items: center; gap: 8px; }
+.priority-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--red); transition: background .15s; }
+.priority-toggle select {
+  background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: var(--font);
+  font-size: 12px; font-weight: 700; padding: .5rem .8rem; border-radius: 4px; cursor: pointer;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.priority-count { font-size: 11px; color: var(--muted); }
+.priority-count b { color: var(--text); }
+
+table.priority-table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+table.priority-table thead th {
+  text-align: left; padding: 7px 8px; color: var(--muted); font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; font-size: 9px; border-bottom: 1px solid var(--border);
+}
+table.priority-table tbody td { padding: 8px 8px; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text); vertical-align: top; overflow-wrap: break-word; }
+table.priority-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+table.priority-table tbody tr.row-selected { background: rgba(255,92,51,.07); }
+table.priority-table thead th input[type="checkbox"], table.priority-table tbody td input[type="checkbox"] { cursor: pointer; }
+.comment-cell { font-size: 11px; color: var(--light); line-height: 1.35; }
+.comment-cell .k { color: var(--muted); }
+.fecha-cell { font-size: 10.5px; line-height: 1.4; white-space: normal; }
+.chat-cell {
+  font-size: 10px; color: var(--light); line-height: 1.3;
+  max-width: 130px; max-height: 58px; overflow-y: auto; overflow-x: hidden;
+  word-break: break-word; display: block;
+}
+.wait-badge { font-weight: 700; white-space: nowrap; }
+.wait-badge.crit { color: #ff7a68; }
+.wait-badge.warn { color: #f0bb4d; }
+.wait-badge.ok { color: var(--muted); }
+
+.status-pill { display: inline-block; padding: 3px 9px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; }
+.status-pill.red { background: rgba(217,72,58,.18); color: #ff7a68; }
+.status-pill.amber { background: rgba(224,165,38,.18); color: #f0bb4d; }
+.status-pill.green { background: rgba(63,166,107,.15); color: var(--exec); }
+.status-pill.grey { background: rgba(255,255,255,.08); color: var(--muted); }
+.status-pill.purple { background: rgba(139,92,246,.18); color: #b39ffa; }
+
+.btn-export {
+  background: transparent; border: 1px solid var(--exec); color: var(--exec); font-family: var(--font);
+  font-size: 11px; font-weight: 700; padding: .5rem 1rem; border-radius: 4px; cursor: pointer;
+  text-transform: uppercase; letter-spacing: .05em; transition: all .15s; display:flex; align-items:center; gap:6px;
+}
+.btn-export:hover { background: rgba(76,175,125,.12); }
+.btn-export:disabled { opacity: .5; cursor: not-allowed; }
+
+.btn-alert {
+  background: transparent; border: 1px solid #25D366; color: #25D366; font-family: var(--font);
+  font-size: 11px; font-weight: 700; padding: .5rem 1rem; border-radius: 4px; cursor: pointer;
+  text-transform: uppercase; letter-spacing: .05em; transition: all .15s; display:flex; align-items:center; gap:6px;
+}
+.btn-alert:hover { background: rgba(37,211,102,.12); }
+.btn-alert:disabled { opacity: .5; cursor: not-allowed; }
+
+.priority-table-wrap { overflow-x: hidden; max-height: 560px; overflow-y: auto; }
+
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.25rem; }
+.kpi-row.secondary { grid-template-columns: repeat(4, 1fr); margin-top: 10px; }
+.kpi-row.secondary.kpi-row-5 { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 900px) { .kpi-row.secondary.kpi-row-5 { grid-template-columns: repeat(2, 1fr); } }
+.kpi {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 1.1rem 1.3rem;
+  position: relative; overflow: hidden; transition: border-color .2s;
+}
+.kpi::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--orange); opacity: 0; transition: opacity .2s; }
+.kpi:hover::before { opacity: 1; }
+.kpi.clickable { cursor: pointer; }
+.kpi-label { font-size: 10px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .5rem; }
+.kpi-val { font-size: 2.1rem; font-weight: 700; line-height: 1; color: var(--white); }
+.kpi-val.orange { color: var(--orange); }
+.kpi-val.green  { color: var(--exec); }
+.kpi-val.red { color: #ff7a68; }
+.kpi-val.amber { color: #f0bb4d; }
+.kpi-sub { font-size: 11px; color: var(--muted); margin-top: .35rem; font-weight: 300; }
+
+.charts-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 12px; margin-bottom: 1.25rem; }
+.charts-grid.tri { grid-template-columns: 1fr 1fr 1fr; }
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 1.25rem 1.5rem; transition: border-color .2s; }
+.card:hover { border-color: rgba(255,255,255,0.14); }
+.card.full { grid-column: 1 / -1; }
+.card-title { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 1rem; }
+.chart-wrap { position: relative; }
+.h200 { height: 200px; }
+.h240 { height: 240px; }
+.empty-chart { display:flex; align-items:center; justify-content:center; height:100%; font-size:12px; color:var(--muted); }
+
+.stats-section-title {
+  font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .1em; margin: 0 0 1rem; padding-top: .5rem; border-top: 1px solid var(--border);
+}
+
+footer {
+  padding: 1.25rem 2.5rem; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted);
+  display: flex; align-items: center; gap: .5rem;
+}
+footer span { color: var(--orange); font-weight: 700; }
+
+.loader { font-size: 12px; color: var(--muted); padding: 2rem; text-align: center; }
+
+@media (max-width: 900px) {
+  header, .sync-bar, main { padding-left: 1rem; padding-right: 1rem; }
+  .kpi-row { grid-template-columns: 1fr 1fr; }
+  .charts-grid, .charts-grid.tri { grid-template-columns: 1fr; }
+  .filter-group { margin-left: 0; width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <span class="logo-text">CORE</span>
+    <div class="header-divider"></div>
+    <div class="header-title"><strong>Seguimiento</strong> de Interesados · Marketing</div>
+  </div>
+</header>
+
+<div class="top-tabs">
+  <button class="top-tab active" id="tab-seguimiento" onclick="switchTopTab('seguimiento')">Seguimiento</button>
+  <button class="top-tab" id="tab-respuestas" onclick="switchTopTab('respuestas')">Tiempos de Respuesta</button>
+</div>
+
+<div id="view-seguimiento" class="top-view">
+
+<div class="sync-bar">
+  <button class="btn-sync" id="btn-sync" onclick="syncFromSheet('auto')">Actualizar</button>
+  <button class="btn-reset" id="btn-full-sync" onclick="syncFromSheet('full')">Sincronizar todo</button>
+  <span class="sync-status" id="sync-status">Sin datos todavía</span>
+  <div class="filter-group">
+    <span class="filter-label">Sedes</span>
+    <div class="sede-picker">
+      <button class="btn-sede-picker" onclick="toggleSedePicker()">Elegir sedes <span class="n" id="sede-picker-count">0</span> ▾</button>
+      <div class="sede-picker-panel" id="sede-picker-panel">
+        <input type="text" id="sede-picker-search" placeholder="Buscar sede…" oninput="renderSedePickerList()">
+        <div class="sede-picker-actions">
+          <button onclick="selectAllSedes()">Todas</button>
+          <button onclick="clearAllSedes()">Ninguna</button>
+        </div>
+        <div class="sede-picker-list" id="sede-picker-list"></div>
+      </div>
+    </div>
+    <span class="filter-label">Mes/Año</span>
+    <select id="mes-filter" onchange="onFilterChange()">
+      <option value="">Todos</option>
+    </select>
+    <button class="btn-reset" onclick="resetFilters()">Reset</button>
+  </div>
+</div>
+<div class="sync-hint">"Sincronizar todo" trae el historial completo (más lento). "Actualizar" solo relee los contactos de los últimos 90 días y es la opción para el uso diario.</div>
+
+
+<main>
+
+  <div class="overview-wrap">
+    <div class="section-title">Alertas por sede <span class="count-badge" id="overview-count">0 sedes</span> — elegí una para ver el detalle</div>
+    <div class="overview-grid" id="overview-grid">
+      <div class="empty-hint">Todavía no hay datos sincronizados. Configurá la URL del Apps Script en el código y tocá "Actualizar datos".</div>
+    </div>
+  </div>
+
+  <div id="sede-detail">
+    <div class="sede-header">
+      <div>
+        <h2 id="sede-title">—</h2>
+        <div class="sub" id="sede-sub">—</div>
+      </div>
+      <button class="btn-reset" onclick="closeSede()">Cerrar sede</button>
+    </div>
+
+    <!-- LISTADO PRIORITARIO -->
+    <div class="priority-card">
+      <div class="priority-header">
+        <div class="priority-toggle">
+          <span class="priority-dot" id="priority-dot"></span>
+          <select id="priority-view-select" onchange="setPriorityView(this.value)">
+            <option value="no_contactado">No contactados</option>
+            <option value="alertas_intermedias">Alertas intermedias</option>
+            <option value="numero_incorrecto">Número Incorrecto</option>
+          </select>
+        </div>
+        <input type="text" id="priority-search" placeholder="Buscar por nombre o teléfono…" style="min-width:220px" oninput="renderPriorityTable()">
+        <div class="priority-count" id="priority-count"></div>
+        <button class="btn-reset" id="btn-hide" onclick="hideSelected()" disabled>Ocultar seleccionadas</button>
+        <button class="btn-reset" id="btn-restore" onclick="restoreHidden()" style="display:none"></button>
+        <button class="btn-alert" id="btn-alert" onclick="alertarSede()">Alertar a sede</button>
+        <button class="btn-alert" id="btn-alert-otro" onclick="alertarOtroChat()" title="Te deja elegir a qué chat mandarlo (ej: un grupo interno)">Enviar a otro chat</button>
+        <button class="btn-export" id="btn-export" onclick="exportExcel()">Exportar Excel</button>
+      </div>
+      <div class="priority-table-wrap" id="priority-table"></div>
+    </div>
+
+    <div class="stats-section-title">Estadísticas de la sede</div>
+
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="kpi-label">Contactos en el período</div>
+        <div class="kpi-val" id="k-total">—</div>
+        <div class="kpi-sub" id="k-total-sub">&nbsp;</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Interés alto</div>
+        <div class="kpi-val orange" id="k-interes-alto">—</div>
+        <div class="kpi-sub" id="k-interes-alto-sub">&nbsp;</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Venta concretada</div>
+        <div class="kpi-val green" id="k-venta">—</div>
+        <div class="kpi-sub" id="k-venta-sub">tasa de conversión</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Tiempo prom. sin contactar</div>
+        <div class="kpi-val amber" id="k-tiempo">—</div>
+        <div class="kpi-sub">tiempo en horario laboral</div>
+      </div>
+    </div>
+
+    <div class="kpi-row secondary kpi-row-5">
+      <div class="kpi clickable" onclick="setPriorityView('no_contactado')">
+        <div class="kpi-label">🔴 No contactado <span style="opacity:.5">▾</span></div>
+        <div class="kpi-val red" id="k-no-contactado">—</div>
+        <div class="kpi-sub">alerta activa</div>
+      </div>
+      <div class="kpi clickable" onclick="setPriorityView('numero_incorrecto')">
+        <div class="kpi-label">Número Incorrecto <span style="opacity:.5">▾</span></div>
+        <div class="kpi-val" style="color:#b39ffa" id="k-numero-incorrecto">—</div>
+        <div class="kpi-sub">dato a corregir</div>
+      </div>
+      <div class="kpi clickable" onclick="setPriorityView('alertas_intermedias')">
+        <div class="kpi-label">🟠 Interesado – No responde <span style="opacity:.5">▾</span></div>
+        <div class="kpi-val amber" id="k-interesado-nr">—</div>
+        <div class="kpi-sub">alerta intermedia</div>
+      </div>
+      <div class="kpi clickable" onclick="setPriorityView('alertas_intermedias')">
+        <div class="kpi-label">🟠 CDP cancelada/sin reagendar <span style="opacity:.5">▾</span></div>
+        <div class="kpi-val amber" id="k-cdp">—</div>
+        <div class="kpi-sub">alerta intermedia</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Clase agendada</div>
+        <div class="kpi-val green" id="k-agendada">—</div>
+        <div class="kpi-sub">&nbsp;</div>
+      </div>
+    </div>
+
+    <div class="charts-grid tri">
+      <div class="card">
+        <div class="card-title">Distribución de estados</div>
+        <div class="chart-wrap h200"><canvas id="c-estados"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Antigüedad de alertas abiertas</div>
+        <div class="chart-wrap h200"><canvas id="c-antiguedad"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Interés (alto vs. bajo)</div>
+        <div class="chart-wrap h200"><canvas id="c-interes"></canvas></div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="card full">
+        <div class="card-title">Evolución mensual por estado</div>
+        <div class="chart-wrap h240"><canvas id="c-evolucion"></canvas></div>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+</div><!-- /view-seguimiento -->
+
+<div id="view-respuestas" class="top-view" style="display:none">
+  <div class="sync-bar">
+    <button class="btn-sync" id="btn-sync-resp" onclick="syncRespuestas()">Actualizar tiempos de respuesta</button>
+    <span class="sync-status" id="sync-status-resp">Sin datos todavía</span>
+  </div>
+  <div class="sync-hint">Mide cuánto tardó cada sede en dar el primer paso (cambiar el estado desde "No contactado"/"Sin cargar"/"Número Incorrecto" a cualquier otra cosa), contando solo horario de atención — usa el registro que arma Tracking.gs cada vez que cambia un estado. Esto es distinto del "tiempo sin contactar" de la otra pestaña: acá solo entran los que YA fueron resueltos.</div>
+
+  <main>
+    <div class="kpi-row" id="resp-kpi-row" style="margin-top:2rem">
+      <div class="kpi">
+        <div class="kpi-label">Respuestas registradas</div>
+        <div class="kpi-val" id="r-total">—</div>
+        <div class="kpi-sub" id="r-total-sub">&nbsp;</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Tiempo prom. de 1ª respuesta</div>
+        <div class="kpi-val orange" id="r-promedio">—</div>
+        <div class="kpi-sub">horario laboral</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Mediana de 1ª respuesta</div>
+        <div class="kpi-val" id="r-mediana">—</div>
+        <div class="kpi-sub">horario laboral</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Dentro del objetivo (≤20min)</div>
+        <div class="kpi-val green" id="r-objetivo">—</div>
+        <div class="kpi-sub" id="r-objetivo-sub">&nbsp;</div>
+      </div>
+    </div>
+
+    <div class="charts-grid" style="margin-top:1.25rem">
+      <div class="card">
+        <div class="card-title">Distribución del tiempo de 1ª respuesta</div>
+        <div class="chart-wrap h240"><canvas id="c-resp-dist"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Ranking por sede (peor a mejor)</div>
+        <div class="detail-table-wrap" id="resp-tabla-sedes" style="max-height:280px"></div>
+      </div>
+    </div>
+
+    <div class="card full" style="margin-top:1.25rem">
+      <div class="card-title">Detalle</div>
+      <div class="detail-table-wrap" id="resp-tabla-detalle" style="max-height:480px"></div>
+    </div>
+  </main>
+</div><!-- /view-respuestas -->
+
+<footer>
+  <span>CORE</span> · Seguimiento de Interesados · Marketing · datos en tiempo real desde Google Sheets
+</footer>
+
+<script>
+// ====================== CONFIG ======================
+// Pegá acá la URL de tu Apps Script (Implementar > Nueva implementación > Aplicación web),
+// la misma lógica que usamos en Mantenimiento. Ver Code.gs adjunto para el código a instalar.
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbwqXgkp41vGPqLT0dCo5Vm0aWbXycPUWr4x80Leex40BLuqmETzaTKbmoTCtB05OTKQ4A/exec';
+const STORAGE_KEY = 'core_marketing_selected_sedes_v1';
+const STARTROWS_KEY = 'core_marketing_startrows_v1';
+const HISTORICAL_KEY = 'core_marketing_historical_v1';
+// "Actualizar" siempre relee desde HOY - CUTOFF_WINDOW_DIAS en adelante (así detecta cambios
+// de estado en contactos de ese período, no solo filas nuevas). El histórico más viejo que
+// eso se congela en la última "Sincronizar todo". Si quieren cambiar la ventana (por ej. a
+// 60 o 120 días), alcanza con tocar este número y volver a hacer "Sincronizar todo".
+const CUTOFF_WINDOW_DIAS = 90;
+function getCutoffDate(){
+  const d = new Date();
+  d.setDate(d.getDate() - CUTOFF_WINDOW_DIAS);
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+const ESTADOS_ORDEN = [
+  'no_contactado', 'numero_incorrecto', 'interesado_no_responde', 'cdp_cancelada',
+  'contactado', 'clase_agendada', 'no_interesado', 'venta_concretada'
+];
+const ESTADO_LABEL = {
+  no_contactado: 'No contactado',
+  numero_incorrecto: 'Número Incorrecto',
+  interesado_no_responde: 'Interesado - No responde',
+  cdp_cancelada: 'CDP cancelada/sin reagendar',
+  contactado: 'Contactado',
+  clase_agendada: 'Clase agendada',
+  no_interesado: 'No interesado',
+  venta_concretada: 'Venta Concretada',
+  otro: 'Sin clasificar'
+};
+const ESTADO_COLOR = {
+  no_contactado: '#D9483A',
+  numero_incorrecto: '#8B5CF6',
+  interesado_no_responde: '#E0A526',
+  cdp_cancelada: '#E0A526',
+  contactado: '#5B9CF6',
+  clase_agendada: '#3FA66B',
+  no_interesado: '#9DA5A8',
+  venta_concretada: '#4CAF7D',
+  otro: '#666'
+};
+// Nombres de mes válidos para filtrar entradas "sucias" de la columna Mes
+const MESES_VALIDOS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','setiembre','octubre','noviembre','diciembre'];
+
+// Teléfono de WhatsApp de cada sede (según CORE_SEDE_NUM.xlsx), clave = número de sede.
+const PHONES_BY_SEDE_NUM = {
+  1: '5491134296899',  2: '5491155280578',  3: '5491155697666',  4: '5491171733276',
+  5: '5491130594152',  6: '5491134032534',  7: '5491169687108',  8: '5491134107676',
+  9: '5491134107678',  10: '5491140318285', 11: '5491154670472', 12: '5491171663417',
+  13: '5491165821138', 14: '5491161035695', 15: '5491160556008', 16: '5491160539795',
+  17: '5491123007028', 18: '5491162627431', 19: '5491125361731', 20: '5491124945373',
+  21: '5491168764459', 22: '5491180244212', 23: '5491168681814', 24: '5491168699044',
+  25: '5491168747973', 26: '5491167938887', 27: '5491130269217', 28: '5491130001629',
+  29: '5491153315669', 30: '5491130340067', 31: '5491130337185', 32: '5491124900155',
+  33: '5491171661730'
+};
+
+let RAW = [];
+let liveData = [];
+let historicalData = [];    // datos "congelados" de antes del corte (CUTOFF_DATE), de la última sync completa
+let recentData = [];        // datos desde el corte en adelante, se pisan enteros en cada "Actualizar"
+let allSedeNames = [];      // todas las sedes detectadas en el sheet, ya ordenadas numéricamente
+let selectedSedes = [];     // sedes elegidas por el usuario (persistidas)
+let currentSede = null;
+let priorityView = 'no_contactado';   // 'no_contactado' | 'alertas_intermedias' | 'numero_incorrecto'
+let hiddenIds = new Set();     // filas ocultadas manualmente — no cuentan para stats ni listados
+let selectedIds = new Set();   // filas tildadas actualmente en la tabla
+Chart.defaults.font.family = "'Roboto', sans-serif";
+Chart.defaults.color = '#9DA5A8';
+
+function classifyEstado(estadoRaw){
+  const e = (estadoRaw || '').trim().toLowerCase();
+  if (!e || e.includes('no contactado')) return { cat: 'no_contactado', alert: 'red' };
+  if (e.includes('numero incorrecto') || e.includes('número incorrecto')) return { cat: 'numero_incorrecto', alert: 'incorrecto' };
+  if (e.includes('interesado') && e.includes('no responde')) return { cat: 'interesado_no_responde', alert: 'amber' };
+  if (e.includes('cdp')) return { cat: 'cdp_cancelada', alert: 'amber' };
+  if (e.includes('clase agendada')) return { cat: 'clase_agendada', alert: 'none' };
+  if (e.includes('venta concretada')) return { cat: 'venta_concretada', alert: 'none' };
+  if (e.includes('no interesado')) return { cat: 'no_interesado', alert: 'none' };
+  if (e.includes('contactado')) return { cat: 'contactado', alert: 'none' };
+  return { cat: 'otro', alert: 'red' };
+}
+
+function daysSince(iso){
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  const ms = Date.now() - d.getTime();
+  return Math.max(0, Math.floor(ms / (1000*60*60*24)));
+}
+
+// ====================== HORARIOS DE SEDE (para calcular demora "en horario") ======================
+// Patrones de horario detectados en Horarios_de_sedes.xlsx. Días: 0=Domingo...6=Sábado.
+// Los minutos son minutos desde las 00:00. Domingo cerrado en todos los casos.
+const HORARIO_PATTERNS = {
+  A: { 1:[[7*60,13*60],[15*60,22*60]], 2:[[7*60,13*60],[15*60,22*60]], 3:[[7*60,13*60],[15*60,22*60]],
+       4:[[7*60,13*60],[15*60,22*60]], 5:[[7*60,13*60],[15*60,22*60]], 6:[[10*60,14*60]], 0:[] },
+  B: { 1:[[7*60,12*60],[16*60,21*60]], 2:[[7*60,12*60],[16*60,21*60]], 3:[[7*60,12*60],[16*60,21*60]],
+       4:[[7*60,12*60],[16*60,21*60]], 5:[[7*60,12*60],[16*60,21*60]], 6:[[9*60,14*60]], 0:[] },
+  C: { 1:[[7*60,22*60]], 2:[[7*60,22*60]], 3:[[7*60,22*60]], 4:[[7*60,22*60]], 5:[[7*60,22*60]], 6:[[9*60,14*60]], 0:[] }
+};
+// Nº de sede -> patrón de horario (según Horarios_de_sedes.xlsx)
+const SEDE_PATTERN = {
+  1:'A', 2:'A', 3:'A', 4:'A', 5:'A', 6:'B', 7:'A', 8:'B', 9:'A', 10:'A',
+  11:'B', 12:'A', 13:'B', 14:'B', 15:'B', 16:'B', 17:'C', 18:'B', 19:'A', 20:'B',
+  21:'B', 22:'B', 23:'B', 24:'B', 25:'B', 26:'B', 27:'B', 28:'A', 29:'B', 30:'B',
+  31:'B', 32:'B', 33:'B'
+};
+function getScheduleForSede(sede){
+  const num = sedeNum(sede);
+  const pattern = SEDE_PATTERN[num] || 'B'; // fallback: patrón más común
+  return HORARIO_PATTERNS[pattern];
+}
+// Minutos de atención efectivamente transcurridos entre `start` y `end`, contando SOLO horario de apertura de la sede.
+function businessMinutesElapsed(start, end, sede){
+  if (!(start instanceof Date) || isNaN(start.getTime())) return null;
+  if (!(end instanceof Date) || isNaN(end.getTime()) || end <= start) return 0;
+  const schedule = getScheduleForSede(sede);
+  let totalMin = 0;
+  let cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const limit = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  let guard = 0;
+  while (cursor <= limit && guard < 3660) { // guard: ~10 años tope de seguridad
+    guard++;
+    const dow = cursor.getDay();
+    const intervals = schedule[dow] || [];
+    intervals.forEach(([openMin, closeMin]) => {
+      const openDate = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate(), 0, openMin);
+      const closeDate = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate(), 0, closeMin);
+      const segStart = openDate < start ? start : openDate;
+      const segEnd = closeDate > end ? end : closeDate;
+      if (segEnd > segStart) totalMin += (segEnd - segStart) / 60000;
+    });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return totalMin;
+}
+// Devuelve {totalMinutes} de demora EN HORARIO DE ATENCIÓN, desde el ingreso hasta ahora (momento de sync)
+function elapsedSince(iso, sede){
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  const totalMinutes = businessMinutesElapsed(d, new Date(), sede);
+  return { totalMinutes };
+}
+// Formato "1d 3h 20m" (sin segundos), sobre minutos de horario de atención transcurridos
+function fmtElapsed(el){
+  if (!el || el.totalMinutes === null || el.totalMinutes === undefined) return '—';
+  const totalMin = Math.max(0, Math.round(el.totalMinutes));
+  const days = Math.floor(totalMin / (24*60));
+  const hours = Math.floor((totalMin % (24*60)) / 60);
+  const mins = totalMin % 60;
+  if (days > 0) return days + 'd ' + hours + 'h ' + mins + 'm';
+  if (hours > 0) return hours + 'h ' + mins + 'm';
+  return mins + 'm';
+}
+function sedeNum(sede){
+  const m = (sede||'').match(/(\d+)/);
+  return m ? parseInt(m[1], 10) : 9999;
+}
+function sortSedesNumeric(arr){
+  return arr.slice().sort((a,b) => sedeNum(a) - sedeNum(b) || a.localeCompare(b));
+}
+
+function normalize(raw){
+  return raw.map((r, idx) => {
+    const cls = classifyEstado(r.estado);
+    return {
+      ...r,
+      _id: idx + '|' + r.sede + '|' + (r.fecha||'') + '|' + (r.telefono||''),
+      estadoCat: cls.cat,
+      alertLevel: cls.alert,
+      interesNorm: (r.interes||'').toLowerCase().includes('alto') ? 'alto' : ((r.interes||'').toLowerCase().includes('bajo') ? 'bajo' : ''),
+      dias: daysSince(r.fecha),
+      elapsed: elapsedSince(r.fecha, r.sede)
+    };
+  });
+}
+
+function escapeHtml(s){
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtDate(iso){
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
+}
+function fmtDate2Lineas(iso){
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  const fecha = d.toLocaleDateString('es-AR');
+  const hora = d.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
+  return fecha + '<br>' + hora;
+}
+function setStatus(html, cls){
+  const el = document.getElementById('sync-status');
+  el.innerHTML = html;
+  el.className = 'sync-status ' + (cls || '');
+}
+
+// ====================== SEDE PICKER (persistido) ======================
+function loadSelectedSedes(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e){ return []; }
+}
+function saveSelectedSedes(){
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(selectedSedes)); } catch(e){}
+}
+function toggleSedePicker(){
+  document.getElementById('sede-picker-panel').classList.toggle('open');
+}
+document.addEventListener('click', (e) => {
+  const picker = document.querySelector('.sede-picker');
+  if (picker && !picker.contains(e.target)){
+    document.getElementById('sede-picker-panel').classList.remove('open');
+  }
+});
+function renderSedePickerList(){
+  const list = document.getElementById('sede-picker-list');
+  const q = (document.getElementById('sede-picker-search').value || '').toLowerCase();
+  const items = allSedeNames.filter(s => s.toLowerCase().includes(q));
+  if (!items.length){
+    list.innerHTML = '<p style="font-size:11px;color:var(--muted);padding:6px">Sin coincidencias.</p>';
+    return;
+  }
+  list.innerHTML = items.map(s => `<label class="sede-picker-item">
+    <input type="checkbox" value="${escapeHtml(s)}" ${selectedSedes.includes(s)?'checked':''} onchange="onSedeCheck('${escapeHtml(s).replace(/'/g,"\\'")}', this.checked)">
+    <span>${escapeHtml(s)}</span>
+  </label>`).join('');
+}
+function onSedeCheck(sede, checked){
+  if (checked){ if (!selectedSedes.includes(sede)) selectedSedes.push(sede); }
+  else { selectedSedes = selectedSedes.filter(s => s !== sede); }
+  selectedSedes = sortSedesNumeric(selectedSedes);
+  saveSelectedSedes();
+  updateSedePickerCount();
+  // si estabas viendo el detalle de la sede que acabás de destildar, lo cerramos prolijamente
+  if (!checked && sede === currentSede){
+    closeSede();
+  } else {
+    renderOverview();
+  }
+}
+function selectAllSedes(){
+  selectedSedes = sortSedesNumeric(allSedeNames.slice());
+  saveSelectedSedes();
+  updateSedePickerCount();
+  renderSedePickerList();
+  renderOverview();
+}
+function clearAllSedes(){
+  selectedSedes = [];
+  saveSelectedSedes();
+  updateSedePickerCount();
+  renderSedePickerList();
+  renderOverview();
+  closeSede();
+}
+function updateSedePickerCount(){
+  document.getElementById('sede-picker-count').textContent = selectedSedes.length;
+}
+
+// ====================== SYNC ======================
+function loadStartRows(){
+  try {
+    const raw = localStorage.getItem(STARTROWS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e){ return null; }
+}
+function saveStartRows(map, cutoffUsada){
+  try { localStorage.setItem(STARTROWS_KEY, JSON.stringify({ starts: map, windowDias: CUTOFF_WINDOW_DIAS, cutoff: cutoffUsada.toISOString() })); } catch(e){}
+}
+// El histórico (todo lo anterior a la ventana de 90 días) puede ser bastante pesado (varios años
+// x 33 sedes), así que lo guardamos en IndexedDB en vez de localStorage: localStorage tiene un
+// límite chico (5-10MB típico) que se llena fácil con este volumen y falla en silencio; IndexedDB
+// tiene muchísimo más espacio disponible en el navegador.
+const IDB_NAME = 'core_marketing_db';
+const IDB_STORE = 'cache';
+function idbOpen(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function saveHistorical(arr){
+  try {
+    const db = await idbOpen();
+    return await new Promise(resolve => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(arr, HISTORICAL_KEY);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  } catch(e){ return false; }
+}
+async function loadHistorical(){
+  try {
+    const db = await idbOpen();
+    return await new Promise(resolve => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(HISTORICAL_KEY);
+      req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : null);
+      req.onerror = () => resolve(null);
+    });
+  } catch(e){ return null; }
+}
+// Saca duplicados por clave compuesta. Si hay dos filas con la misma clave, se queda con la
+// ÚLTIMA (recentData, más fresco, va después en el array). Ojo: si la fila no tiene ni fecha
+// ni teléfono (ej. "Sin cargar" recién creado), no la deduplicamos — son datos demasiado
+// ambiguos entre sí como para asumir con seguridad que son la misma fila.
+function dedupeRows(rows){
+  const map = new Map();
+  let sinIdentidad = 0;
+  rows.forEach(r => {
+    if (!r.fecha && !r.telefono) {
+      map.set('sin-identidad-' + (sinIdentidad++), r);
+      return;
+    }
+    const key = [r.sede, r.fecha, r.telefono, r.nombre, r.usuario, r.consulta, r.estado].join('|');
+    map.set(key, r);
+  });
+  return Array.from(map.values());
+}
+function esReciente(r, cutoff){
+  if (r.fecha){
+    const d = new Date(r.fecha);
+    if (!isNaN(d.getTime())) return d >= cutoff;
+  }
+  // sin fecha válida: nos fijamos en el texto de Mes/Año como respaldo
+  const key = parseMesKey(r.mes);
+  const cutoffKey = cutoff.getFullYear()*100 + (cutoff.getMonth()+1);
+  return key >= cutoffKey;
+}
+// A partir de un dataset COMPLETO (fila 2 en adelante), calcula por sede cuántas filas leer
+// desde el final para cubrir "los últimos 90 días". Esa cantidad es la que usará "Actualizar"
+// hasta la próxima "Sincronizar todo".
+//
+// OJO: NO usamos "buscar la primera fila reciente de arriba hacia abajo" — eso se rompe con que
+// UNA sola fila vieja tenga una fecha rara/editada cerca del principio (por ejemplo, un profe
+// que vuelve a tocar un contacto de 2023): esa única fila hacía que pareciera que "lo reciente"
+// arrancaba casi en la fila 2, y terminábamos leyendo la sede entera igual. En cambio, CONTAMOS
+// cuántas filas son recientes y leemos esa cantidad desde el final, con un margen de seguridad
+// — así una fila vieja desordenada en el medio no arruina el ahorro, en el peor caso leemos
+// algunas filas de más, nunca de menos.
+function calcularStartRows(fullData, cutoff){
+  const bySede = {};
+  fullData.forEach(r => { (bySede[r.sede] = bySede[r.sede] || []).push(r); });
+  const starts = {};
+  Object.keys(bySede).forEach(sede => {
+    const rows = bySede[sede];
+    const total = rows.length;
+    let recentCount = 0;
+    rows.forEach(r => { if (esReciente(r, cutoff)) recentCount++; });
+    const margen = Math.max(20, Math.ceil(recentCount * 0.15)); // colchón de seguridad
+    const filasALeer = Math.min(total, recentCount + margen);
+    starts[sede] = Math.max(2, total - filasALeer + 2); // +2 porque los datos arrancan en fila 2
+  });
+  return starts;
+}
+
+async function syncFromSheet(mode){
+  const btnSync = document.getElementById('btn-sync');
+  const btnFull = document.getElementById('btn-full-sync');
+  if (SHEET_URL === 'PEGA_ACA_TU_URL_DE_APPS_SCRIPT'){
+    setStatus('Falta configurar SHEET_URL en el código del dashboard', 'err');
+    return;
+  }
+
+  const stored = loadStartRows();
+  const historicalCache = await loadHistorical();
+  // Solo forzamos sincronización completa si: nunca se sincronizó, cambiamos el tamaño de la
+  // ventana en el código (CUTOFF_WINDOW_DIAS), o se perdió el histórico persistido (ej: se
+  // limpió el localStorage del navegador). El corrimiento normal de la ventana día a día NO
+  // invalida el caché: "Actualizar" puede traer algún día de más, nunca de menos.
+  const windowChanged = stored && stored.windowDias !== CUTOFF_WINDOW_DIAS;
+  const hayHistoricoValido = Array.isArray(historicalCache);
+  let usarParcial = (mode === 'auto' && stored && stored.starts && !windowChanged && hayHistoricoValido);
+  const esCompleta = !usarParcial;
+  const cutoffActual = getCutoffDate();
+
+  // Si pediste "Actualizar" pero en el fondo vamos a hacer una completa (primera vez en este
+  // navegador, o se perdió el caché), avisamos explícitamente para que no parezca que el botón
+  // "Actualizar" no sirve — en realidad está haciendo lo que tiene que hacer dada la situación.
+  const avisoFallback = (mode === 'auto' && esCompleta);
+
+  if (esCompleta) historicalData = []; // se recalcula desde cero más abajo
+  else historicalData = historicalCache;
+
+  btnSync.disabled = true;
+  btnFull.disabled = true;
+  const msjInicial = esCompleta
+    ? (avisoFallback ? 'No había caché en este navegador todavía: sincronizando todo (una vez)…' : 'Sincronizando todo…')
+    : 'Actualizando (últimos ' + CUTOFF_WINDOW_DIAS + ' días)…';
+  setStatus('<span class="spin"></span>&nbsp;' + msjInicial, '');
+
+  try {
+    let url = SHEET_URL;
+    if (usarParcial){
+      url += (SHEET_URL.includes('?') ? '&' : '?') + 'starts=' + encodeURIComponent(JSON.stringify(stored.starts));
+    }
+    console.log('[SYNC] modo pedido:', mode, '| usarParcial:', usarParcial, '| stored.starts (primeras 5 sedes):', stored && stored.starts ? Object.fromEntries(Object.entries(stored.starts).slice(0,5)) : null);
+    console.log('[SYNC] URL completa:', url);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || 'Respuesta inesperada');
+    console.log('[SYNC] respuesta del servidor → modo:', json.modo, '| count:', json.count, '| sedesInfo (primeras 5):', json.sedesInfo ? Object.fromEntries(Object.entries(json.sedesInfo).slice(0,5)) : null);
+    console.log('[SYNC] debugStartsRecibidos (primeras 5):', json.debugStartsRecibidos ? Object.fromEntries(Object.entries(json.debugStartsRecibidos).slice(0,5)) : null);
+    console.log('[SYNC] debugRangosLeidos (primeros 5):', (json.debugRangosLeidos||[]).slice(0,5));
+    const fetched = json.data || [];
+
+    if (esCompleta){
+      // Sincronización completa: esto ES la nueva foto entera. Separamos histórico/reciente
+      // (últimos 90 días) y recalculamos la fila de corte para las próximas "Actualizar".
+      historicalData = fetched.filter(r => !esReciente(r, cutoffActual));
+      recentData = fetched.filter(r => esReciente(r, cutoffActual));
+      console.log('[SYNC] cutoff usado:', cutoffActual.toString(), '| históricas:', historicalData.length, '| recientes:', recentData.length);
+      console.log('[SYNC] ejemplo fechas crudas (primeras 3 filas recibidas):', fetched.slice(0,3).map(r => ({sede:r.sede, fecha:r.fecha, mes:r.mes})));
+      const startRows = calcularStartRows(fetched, cutoffActual);
+      console.log('[SYNC] startRows calculados (primeras 5 sedes):', Object.fromEntries(Object.entries(startRows).slice(0,5)));
+      saveStartRows(startRows, cutoffActual);
+      const guardadoOk = await saveHistorical(historicalData);
+      if (!guardadoOk) console.warn('No se pudo guardar el histórico en IndexedDB. "Actualizar" va a volver a pedir todo la próxima vez.');
+    } else {
+      // Actualización parcial: reemplazamos SOLO lo reciente por lo que acaba de llegar
+      // (que ya viene filtrado desde el corte en adelante); el histórico queda como estaba.
+      recentData = fetched;
+    }
+
+    // Deduplicamos por si historicalData y recentData llegaran a superponerse (por ej. si el
+    // caché quedó con datos de una sincronización interrumpida a mitad de camino) — así nunca
+    // se duplican contactos ni se infla el conteo, quede lo que quede pisado de antes.
+    RAW = dedupeRows(historicalData.concat(recentData));
+    liveData = normalize(RAW);
+    allSedeNames = sortSedesNumeric([...new Set(liveData.map(d => d.sede))]);
+    hiddenIds.clear();
+    selectedIds.clear();
+
+    const storedSedes = loadSelectedSedes();
+    selectedSedes = sortSedesNumeric(storedSedes.filter(s => allSedeNames.includes(s)));
+
+    populateFilters();
+    renderSedePickerList();
+    updateSedePickerCount();
+
+    const now = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
+    const modoTxt = esCompleta
+      ? liveData.length + ' contactos totales (se releyó todo)'
+      : liveData.length + ' contactos totales (se releyeron ' + fetched.length + ' de los últimos ' + CUTOFF_WINDOW_DIAS + ' días)';
+    setStatus(modoTxt + ' · ' + now, 'ok');
+    renderOverview();
+    if (currentSede) renderSede(currentSede);
+  } catch(e){
+    setStatus('Error: ' + e.message, 'err');
+  } finally {
+    btnSync.disabled = false;
+    btnFull.disabled = false;
+  }
+}
+
+function isMesValido(m){
+  if (!m) return false;
+  const clean = m.toLowerCase().replace(/[^a-záéíóúñ0-9]/g,'');
+  return MESES_VALIDOS.some(mes => clean.startsWith(mes)) && /\d/.test(clean);
+}
+function parseMesKey(m){
+  const meses = {enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,setiembre:9,octubre:10,noviembre:11,diciembre:12};
+  const clean = (m||'').toLowerCase().replace(/[^a-záéíóúñ0-9]/g,'').replace('á','a').replace('é','e');
+  for (const k in meses){
+    if (clean.startsWith(k)){
+      const rest = clean.slice(k.length);
+      let yr = parseInt(rest) || 0;
+      if (yr > 0 && yr < 100) yr += 2000; // normalizamos año de 2 dígitos ("abril23" → 2023)
+      return yr*100 + meses[k];
+    }
+  }
+  return -1;
+}
+
+function populateFilters(){
+  const meses = [...new Set(liveData.map(d => d.mes).filter(isMesValido))];
+  meses.sort((a,b) => parseMesKey(b) - parseMesKey(a)); // más recientes primero
+  const sel = document.getElementById('mes-filter');
+  const current = sel.value;
+  const stillValid = current && meses.includes(current);
+  sel.innerHTML = '<option value="">Todos</option>' +
+    meses.map(m => `<option value="${escapeHtml(m)}"${m===current?' selected':''}>${escapeHtml(m)}</option>`).join('');
+  // Por defecto (primera carga o si el mes elegido ya no existe), dejamos seleccionado el más reciente
+  if (!stillValid && meses.length){
+    sel.value = meses[0];
+  }
+}
+
+function activeFilters(){
+  return { mes: document.getElementById('mes-filter').value };
+}
+function filteredData(sede){
+  const f = activeFilters();
+  return liveData.filter(d => (!sede || d.sede === sede) && (!f.mes || d.mes === f.mes) && !hiddenIds.has(d._id));
+}
+
+function onFilterChange(){
+  renderOverview();
+  if (currentSede) renderSede(currentSede);
+}
+function resetFilters(){
+  const sel = document.getElementById('mes-filter');
+  const opts = [...sel.options].map(o => o.value).filter(Boolean);
+  sel.value = opts.length ? opts[0] : ''; // opts[0] es el más reciente (ya viene ordenado así)
+  onFilterChange();
+}
+
+// ====================== OVERVIEW ======================
+function renderOverview(){
+  const grid = document.getElementById('overview-grid');
+  if (!liveData.length){
+    grid.innerHTML = '<div class="empty-hint">Todavía no hay datos sincronizados. Tocá "Actualizar datos".</div>';
+    document.getElementById('overview-count').textContent = '0 sedes';
+    return;
+  }
+  if (!selectedSedes.length){
+    grid.innerHTML = '<div class="empty-hint">No elegiste ninguna sede todavía. Usá el desplegable "Elegir sedes" de arriba para seleccionar las que querés monitorear.</div>';
+    document.getElementById('overview-count').textContent = '0 sedes';
+    return;
+  }
+  const rows = selectedSedes.map(sede => {
+    const data = filteredData(sede);
+    const rojas = data.filter(d => d.estadoCat === 'no_contactado').length;
+    const ambar = data.filter(d => d.alertLevel === 'amber').length;
+    const incorrecto = data.filter(d => d.estadoCat === 'numero_incorrecto').length;
+    return { sede, rojas, ambar, incorrecto, total: data.length };
+  });
+  // orden numérico de sede (1, 2, 3... no alfabético) — según lo pedido
+  rows.sort((a,b) => sedeNum(a.sede) - sedeNum(b.sede));
+
+  document.getElementById('overview-count').textContent = rows.length + ' sedes';
+  grid.innerHTML = rows.map(r => {
+    const hasAlerts = r.rojas > 0 || r.ambar > 0 || r.incorrecto > 0;
+    return `<div class="sede-card ${r.sede===currentSede?'selected':''} ${hasAlerts?'':'no-alerts'}" onclick="openSede('${escapeHtml(r.sede).replace(/'/g,"\\'")}')">
+      <div class="sede-name" title="${escapeHtml(r.sede)}">${escapeHtml(r.sede)}</div>
+      <div class="alert-row">
+        ${r.rojas ? `<span class="pill red">🔴 ${r.rojas} no contactados</span>` : ''}
+        ${r.ambar ? `<span class="pill amber">🟠 ${r.ambar} interm.</span>` : ''}
+        ${r.incorrecto ? `<span class="pill purple">${r.incorrecto} núm. incorr.</span>` : ''}
+        ${!hasAlerts ? `<span class="no-alert-txt">Sin alertas (${r.total})</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openSede(sede){
+  currentSede = sede;
+  priorityView = 'no_contactado';
+  document.getElementById('priority-view-select').value = 'no_contactado';
+  document.getElementById('priority-dot').style.background = PRIORITY_VIEW_COLOR.no_contactado;
+  renderOverview();
+  // Mostramos el panel ANTES de dibujar los gráficos: si el contenedor está oculto (display:none)
+  // al momento de crear los charts, Chart.js los calcula con tamaño 0 y quedan en blanco.
+  const detail = document.getElementById('sede-detail');
+  detail.classList.add('open');
+  renderSede(sede);
+  detail.scrollIntoView({behavior:'smooth', block:'start'});
+}
+function closeSede(){
+  currentSede = null;
+  selectedIds.clear();
+  destroyCharts();
+  document.getElementById('sede-detail').classList.remove('open');
+  renderOverview();
+}
+
+// ====================== SEDE DETAIL ======================
+let charts = {};
+function destroyCharts(){ Object.values(charts).forEach(c => c && c.destroy()); charts = {}; }
+
+function renderSede(sede){
+  const data = filteredData(sede);
+  document.getElementById('sede-title').textContent = sede;
+  const f = activeFilters();
+  document.getElementById('sede-sub').textContent = f.mes ? 'Mes: ' + f.mes : 'Todos los meses';
+
+  const total = data.length;
+  const altoCount = data.filter(d => d.interesNorm === 'alto').length;
+  const ventaCount = data.filter(d => d.estadoCat === 'venta_concretada').length;
+  const noContactado = data.filter(d => d.estadoCat === 'no_contactado').length;
+  const numeroIncorrecto = data.filter(d => d.estadoCat === 'numero_incorrecto').length;
+  const interesadoNr = data.filter(d => d.estadoCat === 'interesado_no_responde').length;
+  const cdp = data.filter(d => d.estadoCat === 'cdp_cancelada').length;
+  const agendada = data.filter(d => d.estadoCat === 'clase_agendada').length;
+  const alertas = data.filter(d => d.alertLevel !== 'none');
+  const noContactadosRows = data.filter(d => d.estadoCat === 'no_contactado'); // incluye "sin cargar" (estado vacío)
+  const minProm = noContactadosRows.length ? Math.round(noContactadosRows.reduce((a,b)=>a+(b.elapsed?b.elapsed.totalMinutes:0),0)/noContactadosRows.length) : 0;
+
+  document.getElementById('k-total').textContent = total;
+  document.getElementById('k-total-sub').textContent = total ? (Math.round((total-alertas.length)/total*100)) + '% ya resueltos' : '\u00A0';
+  document.getElementById('k-interes-alto').textContent = altoCount;
+  document.getElementById('k-interes-alto-sub').textContent = total ? Math.round(altoCount/total*100) + '% del total' : '\u00A0';
+  document.getElementById('k-venta').textContent = ventaCount;
+  document.getElementById('k-venta-sub').textContent = total ? Math.round(ventaCount/total*100) + '% de conversión' : '0%';
+  document.getElementById('k-tiempo').textContent = noContactadosRows.length ? fmtElapsed({totalMinutes: minProm}) : '—';
+  document.getElementById('k-no-contactado').textContent = noContactado;
+  document.getElementById('k-numero-incorrecto').textContent = numeroIncorrecto;
+  document.getElementById('k-interesado-nr').textContent = interesadoNr;
+  document.getElementById('k-cdp').textContent = cdp;
+  document.getElementById('k-agendada').textContent = agendada;
+
+  renderPriorityTable();
+
+  destroyCharts();
+  renderChartEstados(data);
+  renderChartAntiguedad(alertas);
+  renderChartInteres(data);
+  renderChartEvolucion(sede);
+}
+
+// ---- Listado prioritario (No contactados / Alertas intermedias / Número Incorrecto) ----
+const PRIORITY_VIEW_COLOR = { no_contactado: 'var(--red)', alertas_intermedias: 'var(--amber)', numero_incorrecto: '#8B5CF6' };
+function setPriorityView(view){
+  priorityView = view;
+  selectedIds.clear();
+  document.getElementById('priority-view-select').value = view;
+  document.getElementById('priority-dot').style.background = PRIORITY_VIEW_COLOR[view] || 'var(--muted)';
+  renderPriorityTable();
+  document.querySelector('.priority-card').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function cleanPhone(tel){
+  // "sin guiones": sacamos guiones y espacios, dejamos números (y + si lo tuviera)
+  return (tel || '').toString().replace(/[-\s]/g, '');
+}
+function statusPillClass(estadoCat){
+  if (estadoCat === 'no_contactado') return 'red';
+  if (estadoCat === 'numero_incorrecto') return 'purple';
+  if (estadoCat === 'interesado_no_responde' || estadoCat === 'cdp_cancelada') return 'amber';
+  if (estadoCat === 'contactado' || estadoCat === 'clase_agendada' || estadoCat === 'venta_concretada') return 'green';
+  return 'grey';
+}
+// "Alertas intermedias" agrupa 2 categorías (interesado-no-responde + cdp); las otras vistas
+// son 1 a 1 con su categoría de estado.
+function rowMatchesPriorityView(r, view){
+  if (view === 'alertas_intermedias') return r.alertLevel === 'amber';
+  return r.estadoCat === view;
+}
+
+// Devuelve las filas actualmente visibles en el listado prioritario (según toggle + búsqueda),
+// ordenadas por más tiempo esperando primero. La usan tanto la tabla en pantalla como el export.
+function getPriorityRows(){
+  if (!currentSede) return [];
+  const data = filteredData(currentSede);
+  let rows = data.filter(d => rowMatchesPriorityView(d, priorityView));
+  const q = (document.getElementById('priority-search').value || '').toLowerCase();
+  if (q){
+    rows = rows.filter(d => (d.nombre||'').toLowerCase().includes(q) || cleanPhone(d.telefono).toLowerCase().includes(q));
+  }
+  rows.sort((a,b) => (b.elapsed ? b.elapsed.totalMinutes : 0) - (a.elapsed ? a.elapsed.totalMinutes : 0));
+  return rows;
+}
+
+function renderPriorityTable(){
+  if (!currentSede) return;
+  const rows = getPriorityRows();
+
+  document.getElementById('priority-count').innerHTML = `<b>${rows.length}</b> contacto${rows.length===1?'':'s'}`;
+  updateHideRestoreButtons();
+
+  const wrap = document.getElementById('priority-table');
+  if (!rows.length){
+    const viewLabels = { no_contactado: 'No contactados', alertas_intermedias: 'Alertas intermedias', numero_incorrecto: 'Número Incorrecto' };
+    wrap.innerHTML = `<p style="font-size:12px;color:var(--muted);padding:1rem 0">No hay contactos en "${viewLabels[priorityView] || priorityView}" para este período. Todo al día.</p>`;
+    return;
+  }
+
+  const allChecked = rows.every(r => selectedIds.has(r._id));
+  const head = `<thead><tr>
+    <th style="width:3%"><input type="checkbox" ${allChecked?'checked':''} onchange="toggleSelectAllRows(this.checked)"></th>
+    <th style="width:12%">Consulta</th>
+    <th style="width:9%">Fecha</th>
+    <th style="width:9%">Usuario Insta</th>
+    <th style="width:11%">Nombre y Apellido</th>
+    <th style="width:8%">Teléfono</th>
+    <th style="width:11%">Estado</th>
+    <th style="width:11%">Chat actualizado</th>
+    <th style="width:13%">Comentarios</th>
+    <th style="width:9%">Sin contactar<br><span style="font-weight:400;text-transform:none;font-size:8px">(horario laboral)</span></th>
+  </tr></thead>`;
+
+  const body = '<tbody>' + rows.map(r => {
+    const min = r.elapsed ? r.elapsed.totalMinutes : 0;
+    const cls = min >= 240 ? 'crit' : (min >= 20 ? 'warn' : 'ok'); // 240min=4h laborales, 20min=objetivo de respuesta
+    const checked = selectedIds.has(r._id);
+    return `<tr class="${checked?'row-selected':''}">
+      <td><input type="checkbox" ${checked?'checked':''} onchange="toggleSelectRow('${r._id}', this.checked)"></td>
+      <td>${escapeHtml(r.consulta)}</td>
+      <td class="fecha-cell">${fmtDate2Lineas(r.fecha)}</td>
+      <td>${escapeHtml(r.usuario)}</td>
+      <td>${escapeHtml(r.nombre)}</td>
+      <td>${escapeHtml(cleanPhone(r.telefono))}</td>
+      <td><span class="status-pill ${statusPillClass(r.estadoCat)}">${escapeHtml(r.estado || 'Sin cargar')}</span></td>
+      <td class="chat-cell">${r.comentarioK ? escapeHtml(r.comentarioK) : '—'}</td>
+      <td class="comment-cell">${r.comentarioL ? escapeHtml(r.comentarioL) : '—'}</td>
+      <td class="wait-badge ${cls}">${fmtElapsed(r.elapsed)}</td>
+    </tr>`;
+  }).join('') + '</tbody>';
+
+  wrap.innerHTML = `<table class="priority-table">${head}${body}</table>`;
+}
+
+// ---- Selección de filas (checkboxes) ----
+function toggleSelectRow(id, checked){
+  if (checked) selectedIds.add(id); else selectedIds.delete(id);
+  updateHideRestoreButtons();
+  // repintamos solo para reflejar el resaltado y el estado del check "todos"; evita perder el scroll si es posible
+  renderPriorityTable();
+}
+function toggleSelectAllRows(checked){
+  const rows = getPriorityRows();
+  rows.forEach(r => { if (checked) selectedIds.add(r._id); else selectedIds.delete(r._id); });
+  renderPriorityTable();
+}
+function updateHideRestoreButtons(){
+  const btnHide = document.getElementById('btn-hide');
+  if (btnHide) btnHide.disabled = selectedIds.size === 0;
+  const btnRestore = document.getElementById('btn-restore');
+  if (btnRestore){
+    const hiddenEnSede = currentSede ? liveDataHiddenCountForSede(currentSede) : 0;
+    if (hiddenEnSede > 0){
+      btnRestore.style.display = '';
+      btnRestore.textContent = 'Mostrar ' + hiddenEnSede + ' oculto' + (hiddenEnSede===1?'':'s');
+    } else {
+      btnRestore.style.display = 'none';
+    }
+  }
+}
+function liveDataHiddenCountForSede(sede){
+  return liveData.filter(d => d.sede === sede && hiddenIds.has(d._id)).length;
+}
+function hideSelected(){
+  if (!selectedIds.size) return;
+  selectedIds.forEach(id => hiddenIds.add(id));
+  selectedIds.clear();
+  // ocultar afecta todo: KPIs, gráficos, overview y el listado — repintamos la sede completa
+  if (currentSede) renderSede(currentSede);
+  renderOverview();
+}
+function restoreHidden(){
+  if (!currentSede) return;
+  liveData.forEach(d => { if (d.sede === currentSede) hiddenIds.delete(d._id); });
+  renderSede(currentSede);
+  renderOverview();
+}
+
+// ---- Exportar a Excel con formato CORE ----
+// ---- Alertar a sede por WhatsApp ----
+// Arma el texto del mensaje (tildadas, o si no hay nada tildado, todo lo visible). Devuelve
+// null si no hay nada para mandar (y ya se encargó de avisar con el alert correspondiente).
+function armarMensajeAlerta(){
+  const allRows = getPriorityRows();
+  const selectedVisible = allRows.filter(r => selectedIds.has(r._id));
+  const rows = selectedVisible.length ? selectedVisible : allRows;
+
+  if (!rows.length){
+    alert('No hay contactos para incluir en el mensaje.');
+    return null;
+  }
+
+  const MAX_CONTACTOS = 25;
+  if (rows.length > MAX_CONTACTOS){
+    console.warn('Alertar: se están mandando ' + rows.length + ' contactos en un solo mensaje, puede que quede muy largo para WhatsApp.');
+  }
+
+  const listado = rows.map(r =>
+    'Nombre: ' + (r.nombre || '—') +
+    ' | Ingreso: ' + fmtDate(r.fecha) +
+    ' | Teléfono: ' + cleanPhone(r.telefono) +
+    ' | Tiempo sin respuesta: ' + fmtElapsed(r.elapsed)
+  ).join('\n');
+
+  return 'Equipo! Les dejo los últimos interesados que ingresaron desde instagram y todavía no fueron contactados. Por favor, envíenles el primer mensaje lo antes posible.\n\n' +
+    listado +
+    '\n\nRecuerden que hay que revisar la planilla cada 15, 20\' y mantenerla actualizada.\n\nMuchas gracias!';
+}
+
+function alertarSede(){
+  if (!currentSede) return;
+  const num = sedeNum(currentSede);
+  const telefono = PHONES_BY_SEDE_NUM[num];
+  if (!telefono){
+    alert('Todavía no tengo el teléfono de WhatsApp de esta sede cargado. Pasámelo y lo agrego.');
+    return;
+  }
+  // OJO: nada de confirm()/alert() acá abajo antes del window.open — cualquier diálogo
+  // bloqueante entre el click y el window.open hace que el navegador lo trate como si no
+  // viniera de una acción directa del usuario, y bloquea la apertura de la pestaña.
+  const mensaje = armarMensajeAlerta();
+  if (!mensaje) return;
+  const url = 'https://wa.me/' + telefono + '?text=' + encodeURIComponent(mensaje);
+  window.open(url, '_blank');
+}
+
+// Sin número: WhatsApp te deja elegir a qué chat mandarlo (contacto O grupo, cualquiera
+// de los tuyos) — para casos como un grupo interno del equipo, que no tiene un link directo.
+function alertarOtroChat(){
+  const mensaje = armarMensajeAlerta();
+  if (!mensaje) return;
+  const url = 'https://wa.me/?text=' + encodeURIComponent(mensaje);
+  window.open(url, '_blank');
+}
+
+async function exportExcel(){
+  if (!currentSede) return;
+  const allRows = getPriorityRows();
+  const selectedVisible = allRows.filter(r => selectedIds.has(r._id));
+  const rows = selectedVisible.length ? selectedVisible : allRows;
+  if (!rows.length){ alert('No hay contactos para exportar en esta vista.'); return; }
+  const btn = document.getElementById('btn-export');
+  btn.disabled = true;
+  const originalTxt = btn.innerHTML;
+  btn.innerHTML = 'Generando…';
+  try {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'CORE · Seguimiento de Interesados';
+    wb.created = new Date();
+
+    const tituloVista = priorityView === 'red' ? 'No contactados' : 'Alertas intermedias';
+    const ws = wb.addWorksheet(tituloVista.substring(0, 31));
+
+    ws.columns = [
+      { header: 'Consulta', key: 'consulta', width: 26 },
+      { header: 'Fecha', key: 'fecha', width: 18 },
+      { header: 'Usuario Insta', key: 'usuario', width: 18 },
+      { header: 'Nombre y Apellido', key: 'nombre', width: 24 },
+      { header: 'Teléfono', key: 'telefono', width: 16 },
+      { header: 'Estado de venta desde sede', key: 'estado', width: 26 },
+      { header: 'Chat actualizado', key: 'chat', width: 30 },
+      { header: 'Comentarios', key: 'comentarios', width: 40 },
+      { header: 'Sin contactar (horario laboral)', key: 'espera', width: 18 }
+    ];
+
+    // Encabezado con los colores de CORE (naranja de marca, texto blanco)
+    const headerRow = ws.getRow(1);
+    headerRow.eachCell(cell => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF5C33' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'left' };
+    });
+    headerRow.height = 20;
+
+    rows.forEach(r => {
+      const row = ws.addRow({
+        consulta: r.consulta,
+        fecha: fmtDate(r.fecha),
+        usuario: r.usuario,
+        nombre: r.nombre,
+        telefono: cleanPhone(r.telefono),
+        estado: r.estado || 'Sin cargar',
+        chat: r.comentarioK || '',
+        comentarios: r.comentarioL || '',
+        espera: fmtElapsed(r.elapsed)
+      });
+      row.eachCell(cell => { cell.alignment = { vertical: 'top', wrapText: true }; cell.font = { size: 10.5 }; });
+
+      // Estado con color semáforo (mismo criterio que en pantalla)
+      const cls = statusPillClass(r.estadoCat);
+      const estadoBg = cls === 'red' ? 'FFFCE7E4' : cls === 'amber' ? 'FFFBF1DD' : cls === 'green' ? 'FFE7F5EC' : 'FFEDEDED';
+      const estadoFg = cls === 'red' ? 'FFD9483A' : cls === 'amber' ? 'FFE0A526' : cls === 'green' ? 'FF3FA66B' : 'FF666666';
+      const estadoCell = row.getCell('estado');
+      estadoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: estadoBg } };
+      estadoCell.font = { bold: true, color: { argb: estadoFg }, size: 10.5 };
+
+      // "Sin contactar" resaltado si es crítico (4+ horas laborales sin respuesta)
+      const min = r.elapsed ? r.elapsed.totalMinutes : 0;
+      if (min >= 240) {
+        const esperaCell = row.getCell('espera');
+        esperaCell.font = { bold: true, color: { argb: 'FFD9483A' }, size: 10.5 };
+      }
+    });
+
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+    ws.autoFilter = { from: 'A1', to: 'I1' };
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const fecha = new Date().toISOString().slice(0,10);
+    const nombreArchivo = 'CORE_' + currentSede.replace(/[^a-zA-Z0-9]+/g, '_') + '_' + tituloVista.replace(/ /g, '_') + '_' + fecha + '.xlsx';
+    a.href = url;
+    a.download = nombreArchivo;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('No se pudo generar el Excel: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalTxt;
+  }
+}
+
+document.getElementById('priority-search') && document.getElementById('priority-search').addEventListener('input', renderPriorityTable);
+
+// ---- Charts ----
+function renderChartEstados(data){
+  const ctx = document.getElementById('c-estados');
+  ctx.parentElement.innerHTML = '<canvas id="c-estados"></canvas>';
+  const ctx2 = document.getElementById('c-estados');
+  const counts = ESTADOS_ORDEN.map(cat => data.filter(d => d.estadoCat === cat).length);
+  if (!data.length){ ctx2.parentElement.innerHTML = '<div class="empty-chart">Sin datos en el período</div>'; return; }
+  charts.estados = new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels: ESTADOS_ORDEN.map(c => ESTADO_LABEL[c]),
+      datasets: [{ data: counts, backgroundColor: ESTADOS_ORDEN.map(c => ESTADO_COLOR[c]), borderRadius: 4 }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,.06)' }, ticks: { precision:0 } },
+        y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+function renderChartAntiguedad(alertas){
+  const ctx = document.getElementById('c-antiguedad');
+  ctx.parentElement.innerHTML = '<canvas id="c-antiguedad"></canvas>';
+  const ctx2 = document.getElementById('c-antiguedad');
+  if (!alertas.length){ ctx2.parentElement.innerHTML = '<div class="empty-chart">Sin alertas abiertas</div>'; return; }
+  const buckets = [
+    { label: '< 20 min', min:0, max:20 },
+    { label: '20-60 min', min:20, max:60 },
+    { label: '1-4 hs', min:60, max:240 },
+    { label: '4+ hs', min:240, max:Infinity }
+  ];
+  const counts2 = buckets.map(b => alertas.filter(a => {
+    const m = a.elapsed ? a.elapsed.totalMinutes : 0;
+    return m >= b.min && m < b.max;
+  }).length);
+  charts.antiguedad = new Chart(ctx2, {
+    type: 'bar',
+    data: { labels: buckets.map(b=>b.label), datasets: [{ data: counts2, backgroundColor: ['#3FA66B','#E0A526','#E0A526','#D9483A'], borderRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero:true, grid: { color: 'rgba(255,255,255,.06)' }, ticks:{precision:0} }, x: { grid: { display:false } } }
+    }
+  });
+}
+
+function renderChartInteres(data){
+  const ctx = document.getElementById('c-interes');
+  ctx.parentElement.innerHTML = '<canvas id="c-interes"></canvas>';
+  const ctx2 = document.getElementById('c-interes');
+  const alto = data.filter(d => d.interesNorm==='alto').length;
+  const bajo = data.filter(d => d.interesNorm==='bajo').length;
+  if (!alto && !bajo){ ctx2.parentElement.innerHTML = '<div class="empty-chart">Sin datos en el período</div>'; return; }
+  charts.interes = new Chart(ctx2, {
+    type: 'doughnut',
+    data: { labels: ['Alto','Bajo'], datasets: [{ data: [alto,bajo], backgroundColor: ['#4CAF7D','#474747'] }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+    }
+  });
+}
+
+function renderChartEvolucion(sede){
+  const ctx = document.getElementById('c-evolucion');
+  ctx.parentElement.innerHTML = '<canvas id="c-evolucion"></canvas>';
+  const ctx2 = document.getElementById('c-evolucion');
+  const sedeData = liveData.filter(d => d.sede === sede);
+  const meses = [...new Set(sedeData.map(d => d.mes).filter(isMesValido))].sort((a,b) => parseMesKey(a)-parseMesKey(b));
+  if (!meses.length){ ctx2.parentElement.innerHTML = '<div class="empty-chart">Sin datos suficientes para evolución mensual</div>'; return; }
+  const datasets = ESTADOS_ORDEN.map(cat => ({
+    label: ESTADO_LABEL[cat],
+    data: meses.map(m => sedeData.filter(d => d.mes === m && d.estadoCat === cat).length),
+    backgroundColor: ESTADO_COLOR[cat],
+    stack: 's'
+  }));
+  charts.evolucion = new Chart(ctx2, {
+    type: 'bar',
+    data: { labels: meses, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } },
+      scales: {
+        x: { stacked: true, grid: { display:false }, ticks: { font: { size: 10 } } },
+        y: { stacked: true, beginAtZero:true, grid: { color: 'rgba(255,255,255,.06)' }, ticks:{precision:0} }
+      }
+    }
+  });
+}
+
+// ====================== TIEMPOS DE RESPUESTA (pestaña nueva, separada) ======================
+let respuestasData = [];
+let respCharts = {};
+
+function switchTopTab(tab){
+  document.getElementById('tab-seguimiento').classList.toggle('active', tab==='seguimiento');
+  document.getElementById('tab-respuestas').classList.toggle('active', tab==='respuestas');
+  document.getElementById('view-seguimiento').style.display = tab==='seguimiento' ? '' : 'none';
+  document.getElementById('view-respuestas').style.display = tab==='respuestas' ? '' : 'none';
+  if (tab === 'respuestas' && !respuestasData.length) syncRespuestas();
+}
+
+async function syncRespuestas(){
+  const btn = document.getElementById('btn-sync-resp');
+  if (SHEET_URL === 'PEGA_ACA_TU_URL_DE_APPS_SCRIPT'){
+    setRespStatus('Falta configurar SHEET_URL en el código del dashboard', 'err');
+    return;
+  }
+  btn.disabled = true;
+  setRespStatus('<span class="spin"></span>&nbsp;Actualizando…', '');
+  try {
+    const url = SHEET_URL + (SHEET_URL.includes('?') ? '&' : '?') + 'tipo=respuestas';
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || 'Respuesta inesperada');
+    respuestasData = (json.data || []).map(r => {
+      const ingreso = r.fechaIngreso ? new Date(r.fechaIngreso) : null;
+      const cambio = r.fechaCambio ? new Date(r.fechaCambio) : null;
+      const minutos = (ingreso && cambio) ? businessMinutesElapsed(ingreso, cambio, r.sede) : null;
+      return { ...r, ingreso, cambio, minutos };
+    }).filter(r => r.minutos !== null);
+    const now = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
+    setRespStatus(respuestasData.length + ' respuestas registradas · ' + now, 'ok');
+    renderRespuestas();
+  } catch(e){
+    setRespStatus('Error: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+function setRespStatus(html, cls){
+  const el = document.getElementById('sync-status-resp');
+  el.innerHTML = html;
+  el.className = 'sync-status ' + (cls || '');
+}
+
+function respuestasFiltradas(){
+  // Respeta la misma selección de sedes que la pestaña de Seguimiento, si hay alguna elegida.
+  if (!selectedSedes.length) return respuestasData;
+  return respuestasData.filter(r => selectedSedes.includes(r.sede));
+}
+
+function mediana(nums){
+  if (!nums.length) return 0;
+  const sorted = nums.slice().sort((a,b)=>a-b);
+  const mid = Math.floor(sorted.length/2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid-1]+sorted[mid])/2;
+}
+
+function renderRespuestas(){
+  const rows = respuestasFiltradas();
+  const minutos = rows.map(r => r.minutos);
+
+  document.getElementById('r-total').textContent = rows.length;
+  document.getElementById('r-total-sub').textContent = selectedSedes.length ? selectedSedes.length + ' sede' + (selectedSedes.length===1?'':'s') + ' seleccionada' + (selectedSedes.length===1?'':'s') : 'todas las sedes';
+
+  const prom = minutos.length ? minutos.reduce((a,b)=>a+b,0)/minutos.length : null;
+  document.getElementById('r-promedio').textContent = prom!==null ? fmtElapsed({totalMinutes: prom}) : '—';
+
+  const med = minutos.length ? mediana(minutos) : null;
+  document.getElementById('r-mediana').textContent = med!==null ? fmtElapsed({totalMinutes: med}) : '—';
+
+  const dentroObjetivo = minutos.filter(m => m <= 20).length;
+  document.getElementById('r-objetivo').textContent = dentroObjetivo;
+  document.getElementById('r-objetivo-sub').textContent = rows.length ? Math.round(dentroObjetivo/rows.length*100) + '% del total' : '\u00A0';
+
+  renderRespDistChart(minutos);
+  renderRespTablaSedes(rows);
+  renderRespTablaDetalle(rows);
+}
+
+function renderRespDistChart(minutos){
+  const ctx = document.getElementById('c-resp-dist');
+  ctx.parentElement.innerHTML = '<canvas id="c-resp-dist"></canvas>';
+  const ctx2 = document.getElementById('c-resp-dist');
+  if (respCharts.dist) { respCharts.dist.destroy(); respCharts.dist = null; }
+  if (!minutos.length){ ctx2.parentElement.innerHTML = '<div class="empty-chart">Todavía no hay respuestas registradas</div>'; return; }
+  const buckets = [
+    { label: '≤ 20 min', min:0, max:20 },
+    { label: '20-60 min', min:20, max:60 },
+    { label: '1-4 hs', min:60, max:240 },
+    { label: '4-24 hs', min:240, max:1440 },
+    { label: '+24 hs', min:1440, max:Infinity }
+  ];
+  const counts = buckets.map(b => minutos.filter(m => m >= b.min && m < b.max).length);
+  respCharts.dist = new Chart(ctx2, {
+    type: 'bar',
+    data: { labels: buckets.map(b=>b.label), datasets: [{ data: counts, backgroundColor: ['#3FA66B','#8FCB9E','#E0A526','#E0784A','#D9483A'], borderRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero:true, grid: { color: 'rgba(255,255,255,.06)' }, ticks:{precision:0} }, x: { grid: { display:false } } }
+    }
+  });
+}
+
+function renderRespTablaSedes(rows){
+  const bySede = {};
+  rows.forEach(r => { (bySede[r.sede] = bySede[r.sede] || []).push(r.minutos); });
+  const sedes = Object.keys(bySede).map(sede => {
+    const mins = bySede[sede];
+    const prom = mins.reduce((a,b)=>a+b,0)/mins.length;
+    return { sede, cantidad: mins.length, promedio: prom, mediana: mediana(mins) };
+  });
+  sedes.sort((a,b) => b.promedio - a.promedio); // peor (más lento) primero
+  const wrap = document.getElementById('resp-tabla-sedes');
+  if (!sedes.length){ wrap.innerHTML = '<p style="font-size:12px;color:var(--muted);padding:1rem 0">Sin datos.</p>'; return; }
+  const head = `<thead><tr><th>Sede</th><th>Cant.</th><th>Promedio</th><th>Mediana</th></tr></thead>`;
+  const body = '<tbody>' + sedes.map(s => `<tr>
+    <td>${escapeHtml(s.sede)}</td>
+    <td>${s.cantidad}</td>
+    <td class="wait-badge ${s.promedio>240?'crit':(s.promedio>60?'warn':'ok')}">${fmtElapsed({totalMinutes:s.promedio})}</td>
+    <td>${fmtElapsed({totalMinutes:s.mediana})}</td>
+  </tr>`).join('') + '</tbody>';
+  wrap.innerHTML = `<table class="priority-table">${head}${body}</table>`;
+}
+
+function renderRespTablaDetalle(rows){
+  const sorted = rows.slice().sort((a,b) => b.minutos - a.minutos); // los más lentos arriba
+  const wrap = document.getElementById('resp-tabla-detalle');
+  if (!sorted.length){ wrap.innerHTML = '<p style="font-size:12px;color:var(--muted);padding:1rem 0">Sin datos todavía. En cuanto los profes empiecen a cambiar estados, va a ir apareciendo acá.</p>'; return; }
+  const head = `<thead><tr><th>Sede</th><th>Nombre</th><th>Teléfono</th><th>Ingreso</th><th>Cambió a</th><th>Cuándo</th><th>Demora</th></tr></thead>`;
+  const body = '<tbody>' + sorted.slice(0,300).map(r => `<tr>
+    <td>${escapeHtml(r.sede)}</td>
+    <td>${escapeHtml(r.nombre)}</td>
+    <td>${escapeHtml(cleanPhone(r.telefono))}</td>
+    <td>${fmtDate(r.ingreso ? r.ingreso.toISOString() : null)}</td>
+    <td><span class="status-pill ${statusPillClass(classifyEstado(r.estado).cat)}">${escapeHtml(r.estado)}</span></td>
+    <td>${fmtDate(r.cambio ? r.cambio.toISOString() : null)}</td>
+    <td class="wait-badge ${r.minutos>240?'crit':(r.minutos>60?'warn':'ok')}">${fmtElapsed({totalMinutes:r.minutos})}</td>
+  </tr>`).join('') + '</tbody>';
+  wrap.innerHTML = `<table class="priority-table">${head}${body}</table>`;
+  if (sorted.length > 300){
+    wrap.innerHTML += `<p style="font-size:11px;color:var(--muted);padding:.5rem 0">Mostrando los 300 casos más lentos de ${sorted.length} totales.</p>`;
+  }
+}
+
+// Estado inicial
+console.log('%cCORE · Seguimiento de Interesados — build 2026-08-27-v10 (pestaña Tiempos de Respuesta)', 'color:#FF5C33;font-weight:bold');
+selectedSedes = loadSelectedSedes();
+renderOverview();
+</script>
+
+</body>
+</html>
