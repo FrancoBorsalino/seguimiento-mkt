@@ -56,6 +56,26 @@ header {
   display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; position: relative;
 }
 .sync-bar.resp-subbar { background: transparent; padding: .8rem 2.5rem .2rem; border-bottom: none; }
+
+.resp-filter-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: 0 0 .5rem; }
+
+.resp-table-wrap { overflow-x: auto; }
+table.resp-table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: auto; }
+table.resp-table thead th {
+  text-align: left; padding: 7px 10px; color: var(--muted); font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; font-size: 9px; border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+table.resp-table tbody td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text); vertical-align: top; white-space: nowrap; }
+table.resp-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+table.resp-table tbody tr.row-selected { background: rgba(255,92,51,.07); }
+
+.resultado-list { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
+.resultado-item { display: flex; align-items: center; gap: 10px; }
+.resultado-item .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.resultado-item .label { font-size: 12px; color: var(--text); flex: 1; }
+.resultado-item .pct { font-size: 13px; font-weight: 700; color: var(--white); }
+.resultado-item .count { font-size: 11px; color: var(--muted); margin-left: 4px; }
+
 .btn-sync {
   background: var(--orange); border: none; color: white; font-family: var(--font); font-size: 11px;
   font-weight: 700; text-transform: uppercase; letter-spacing: .1em; padding: .45rem 1.1rem;
@@ -430,10 +450,22 @@ footer span { color: var(--orange); font-weight: 700; }
     <button class="btn-sync" id="btn-sync-resp" onclick="syncRespuestas()">Actualizar tiempos de respuesta</button>
     <span class="sync-status" id="sync-status-resp">Sin datos todavía</span>
   </div>
-  <div class="sync-hint">Mide cuánto tardó cada sede en dar el primer paso (cambiar el estado desde "No contactado"/"Sin cargar"/"Número Incorrecto" a cualquier otra cosa), contando solo horario de atención — usa el registro que arma Tracking.gs cada vez que cambia un estado. Esto es distinto del "tiempo sin contactar" de la otra pestaña: acá solo entran los que YA fueron resueltos. El filtro de sedes de arriba de todo también aplica acá.</div>
+  <div class="sync-hint">Mide cuánto tardó cada sede en dar el primer paso (cambiar el estado desde "No contactado"/"Sin cargar"/"Número Incorrecto" a cualquier otra cosa), contando solo horario de atención — usa el registro que arma Tracking.gs cada vez que cambia un estado. Esto es distinto del "tiempo sin contactar" de la otra pestaña: acá solo entran los que YA fueron resueltos.</div>
 
   <main>
-    <div class="kpi-row" id="resp-kpi-row" style="margin-top:2rem">
+    <div class="resp-filter-row">
+      <span class="filter-label">Sede</span>
+      <select id="resp-sede-filter" onchange="onRespFilterChange()">
+        <option value="">Todas</option>
+      </select>
+      <span class="filter-label">Mes de respuesta</span>
+      <select id="resp-mes-filter" onchange="onRespFilterChange()">
+        <option value="">Todos</option>
+      </select>
+      <button class="btn-reset" onclick="resetRespFilters()">Reset</button>
+    </div>
+
+    <div class="kpi-row" id="resp-kpi-row" style="margin-top:1rem">
       <div class="kpi">
         <div class="kpi-label">Respuestas registradas</div>
         <div class="kpi-val" id="r-total">—</div>
@@ -462,13 +494,25 @@ footer span { color: var(--orange); font-weight: 700; }
         <div class="chart-wrap h240"><canvas id="c-resp-dist"></canvas></div>
       </div>
       <div class="card">
-        <div class="card-title">Ranking por sede (peor a mejor)</div>
-        <div class="detail-table-wrap" id="resp-tabla-sedes" style="max-height:280px"></div>
+        <div class="card-title">¿A qué cambió? (% sobre el total)</div>
+        <div id="resp-distribucion-resultado"></div>
       </div>
     </div>
 
     <div class="card full" style="margin-top:1.25rem">
-      <div class="card-title">Detalle</div>
+      <div class="card-title">Ranking por sede (peor a mejor)</div>
+      <div class="detail-table-wrap" id="resp-tabla-sedes" style="max-height:280px"></div>
+    </div>
+
+    <div class="card full" style="margin-top:1.25rem">
+      <div class="toggle-wrap">
+        <div class="card-title" style="margin-bottom:0">Detalle</div>
+        <input type="text" id="resp-search" placeholder="Buscar por nombre o teléfono…" style="min-width:220px">
+        <div class="priority-count" id="resp-count"></div>
+        <button class="btn-reset" id="resp-btn-hide" onclick="hideRespSelected()" disabled>Ocultar seleccionadas</button>
+        <button class="btn-reset" id="resp-btn-restore" onclick="restoreRespHidden()" style="display:none"></button>
+        <button class="btn-export" id="resp-btn-export" onclick="exportRespExcel()">Exportar Excel</button>
+      </div>
       <div class="detail-table-wrap" id="resp-tabla-detalle" style="max-height:480px"></div>
     </div>
   </main>
@@ -730,7 +774,6 @@ function onSedeCheck(sede, checked){
   } else {
     renderOverview();
   }
-  refreshRespuestasIfLoaded();
 }
 function selectAllSedes(){
   selectedSedes = sortSedesNumeric(allSedeNames.slice());
@@ -738,7 +781,6 @@ function selectAllSedes(){
   updateSedePickerCount();
   renderSedePickerList();
   renderOverview();
-  refreshRespuestasIfLoaded();
 }
 function clearAllSedes(){
   selectedSedes = [];
@@ -747,12 +789,6 @@ function clearAllSedes(){
   renderSedePickerList();
   renderOverview();
   closeSede();
-  refreshRespuestasIfLoaded();
-}
-// La vista de Tiempos de Respuesta comparte el selector de sedes de arriba de todo; si ya
-// tiene datos cargados, la refrescamos cuando cambia la selección (sin obligar a re-sincronizar).
-function refreshRespuestasIfLoaded(){
-  if (typeof respuestasData !== 'undefined' && respuestasData.length) renderRespuestas();
 }
 function updateSedePickerCount(){
   document.getElementById('sede-picker-count').textContent = selectedSedes.length;
@@ -1498,6 +1534,9 @@ function renderChartEvolucion(sede){
 // ====================== TIEMPOS DE RESPUESTA (pestaña nueva, separada) ======================
 let respuestasData = [];
 let respCharts = {};
+let respSelectedIds = new Set();
+let respHiddenIds = new Set();
+const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 
 function switchTopTab(tab){
   document.getElementById('tab-seguimiento').classList.toggle('active', tab==='seguimiento');
@@ -1521,12 +1560,19 @@ async function syncRespuestas(){
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     if (!json.ok) throw new Error(json.error || 'Respuesta inesperada');
-    respuestasData = (json.data || []).map(r => {
+    respHiddenIds.clear();
+    respSelectedIds.clear();
+    respuestasData = (json.data || []).map((r, idx) => {
       const ingreso = r.fechaIngreso ? new Date(r.fechaIngreso) : null;
       const cambio = r.fechaCambio ? new Date(r.fechaCambio) : null;
       const minutos = (ingreso && cambio) ? businessMinutesElapsed(ingreso, cambio, r.sede) : null;
-      return { ...r, ingreso, cambio, minutos };
+      const estadoCat = classifyEstado(r.estado).cat;
+      return {
+        ...r, ingreso, cambio, minutos, estadoCat,
+        _id: idx + '|' + r.sede + '|' + (r.telefono||'') + '|' + (r.fechaCambio||'')
+      };
     }).filter(r => r.minutos !== null);
+    populateRespFilters();
     const now = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
     setRespStatus(respuestasData.length + ' respuestas registradas · ' + now, 'ok');
     renderRespuestas();
@@ -1542,10 +1588,53 @@ function setRespStatus(html, cls){
   el.className = 'sync-status ' + (cls || '');
 }
 
-function respuestasFiltradas(){
-  // Respeta la misma selección de sedes que la pestaña de Seguimiento, si hay alguna elegida.
-  if (!selectedSedes.length) return respuestasData;
-  return respuestasData.filter(r => selectedSedes.includes(r.sede));
+function mesRespuestaLabel(date){
+  if (!date) return null;
+  return MESES_ES[date.getMonth()] + ' ' + date.getFullYear();
+}
+function mesRespuestaKey(date){
+  if (!date) return -1;
+  return date.getFullYear()*100 + (date.getMonth()+1);
+}
+
+function populateRespFilters(){
+  // Sede: solo las que realmente aparecen en el registro, ordenadas 1,2,3...
+  const sedes = sortSedesNumeric([...new Set(respuestasData.map(r => r.sede))]);
+  const selSede = document.getElementById('resp-sede-filter');
+  const curSede = selSede.value;
+  selSede.innerHTML = '<option value="">Todas</option>' +
+    sedes.map(s => `<option value="${escapeHtml(s)}"${s===curSede?' selected':''}>${escapeHtml(s)}</option>`).join('');
+
+  // Mes de respuesta: el mes en que CAMBIÓ el estado (no el de ingreso), de más reciente a más viejo.
+  const mesesMap = new Map();
+  respuestasData.forEach(r => {
+    const label = mesRespuestaLabel(r.cambio);
+    if (label) mesesMap.set(label, mesRespuestaKey(r.cambio));
+  });
+  const meses = [...mesesMap.entries()].sort((a,b) => b[1]-a[1]).map(e => e[0]);
+  const selMes = document.getElementById('resp-mes-filter');
+  const curMes = selMes.value;
+  selMes.innerHTML = '<option value="">Todos</option>' +
+    meses.map(m => `<option value="${escapeHtml(m)}"${m===curMes?' selected':''}>${escapeHtml(m)}</option>`).join('');
+}
+
+function onRespFilterChange(){ renderRespuestas(); }
+function resetRespFilters(){
+  document.getElementById('resp-sede-filter').value = '';
+  document.getElementById('resp-mes-filter').value = '';
+  renderRespuestas();
+}
+
+// Filtro base: saca ocultas + aplica sede/mes de respuesta. Esto es lo que alimenta TODAS las
+// estadísticas (KPIs, gráfico, ranking, % por resultado) — ocultar de verdad saca del cálculo.
+function respBaseFiltered(){
+  const sede = document.getElementById('resp-sede-filter').value;
+  const mes = document.getElementById('resp-mes-filter').value;
+  return respuestasData.filter(r =>
+    !respHiddenIds.has(r._id) &&
+    (!sede || r.sede === sede) &&
+    (!mes || mesRespuestaLabel(r.cambio) === mes)
+  );
 }
 
 function mediana(nums){
@@ -1556,11 +1645,12 @@ function mediana(nums){
 }
 
 function renderRespuestas(){
-  const rows = respuestasFiltradas();
+  const rows = respBaseFiltered();
   const minutos = rows.map(r => r.minutos);
 
   document.getElementById('r-total').textContent = rows.length;
-  document.getElementById('r-total-sub').textContent = selectedSedes.length ? selectedSedes.length + ' sede' + (selectedSedes.length===1?'':'s') + ' seleccionada' + (selectedSedes.length===1?'':'s') : 'todas las sedes';
+  const sedeSel = document.getElementById('resp-sede-filter').value;
+  document.getElementById('r-total-sub').textContent = sedeSel ? sedeSel : 'todas las sedes';
 
   const prom = minutos.length ? minutos.reduce((a,b)=>a+b,0)/minutos.length : null;
   document.getElementById('r-promedio').textContent = prom!==null ? fmtElapsed({totalMinutes: prom}) : '—';
@@ -1573,8 +1663,10 @@ function renderRespuestas(){
   document.getElementById('r-objetivo-sub').textContent = rows.length ? Math.round(dentroObjetivo/rows.length*100) + '% del total' : '\u00A0';
 
   renderRespDistChart(minutos);
+  renderRespDistribucionResultado(rows);
   renderRespTablaSedes(rows);
   renderRespTablaDetalle(rows);
+  updateRespHideRestoreButtons();
 }
 
 function renderRespDistChart(minutos){
@@ -1602,6 +1694,25 @@ function renderRespDistChart(minutos){
   });
 }
 
+// Lista numérica (nada de torta) de a qué estado terminó cambiando cada contacto.
+function renderRespDistribucionResultado(rows){
+  const wrap = document.getElementById('resp-distribucion-resultado');
+  if (!rows.length){ wrap.innerHTML = '<p style="font-size:12px;color:var(--muted);padding:1rem 0">Sin datos.</p>'; return; }
+  const counts = {};
+  rows.forEach(r => { counts[r.estadoCat] = (counts[r.estadoCat]||0) + 1; });
+  const total = rows.length;
+  const items = Object.keys(counts)
+    .map(cat => ({ cat, count: counts[cat], pct: Math.round(counts[cat]/total*100) }))
+    .sort((a,b) => b.count - a.count);
+  wrap.innerHTML = '<div class="resultado-list">' + items.map(it => `
+    <div class="resultado-item">
+      <span class="dot" style="background:${ESTADO_COLOR[it.cat] || '#666'}"></span>
+      <span class="label">${escapeHtml(ESTADO_LABEL[it.cat] || it.cat)}</span>
+      <span class="pct">${it.pct}%</span>
+      <span class="count">(${it.count})</span>
+    </div>`).join('') + '</div>';
+}
+
 function renderRespTablaSedes(rows){
   const bySede = {};
   rows.forEach(r => { (bySede[r.sede] = bySede[r.sede] || []).push(r.minutos); });
@@ -1620,31 +1731,164 @@ function renderRespTablaSedes(rows){
     <td class="wait-badge ${s.promedio>240?'crit':(s.promedio>60?'warn':'ok')}">${fmtElapsed({totalMinutes:s.promedio})}</td>
     <td>${fmtElapsed({totalMinutes:s.mediana})}</td>
   </tr>`).join('') + '</tbody>';
-  wrap.innerHTML = `<table class="priority-table">${head}${body}</table>`;
+  wrap.innerHTML = `<div class="resp-table-wrap"><table class="resp-table">${head}${body}</table></div>`;
+}
+
+// ---- Selección / ocultar / búsqueda en el detalle ----
+function getRespDetailRows(){
+  let rows = respBaseFiltered();
+  const q = (document.getElementById('resp-search').value || '').toLowerCase();
+  if (q){
+    rows = rows.filter(r => (r.nombre||'').toLowerCase().includes(q) || cleanPhone(r.telefono).toLowerCase().includes(q));
+  }
+  rows.sort((a,b) => b.minutos - a.minutos); // los más lentos arriba
+  return rows;
 }
 
 function renderRespTablaDetalle(rows){
-  const sorted = rows.slice().sort((a,b) => b.minutos - a.minutos); // los más lentos arriba
+  const detailRows = getRespDetailRows();
+  document.getElementById('resp-count').innerHTML = `<b>${detailRows.length}</b> respuesta${detailRows.length===1?'':'s'}`;
   const wrap = document.getElementById('resp-tabla-detalle');
-  if (!sorted.length){ wrap.innerHTML = '<p style="font-size:12px;color:var(--muted);padding:1rem 0">Sin datos todavía. En cuanto los profes empiecen a cambiar estados, va a ir apareciendo acá.</p>'; return; }
-  const head = `<thead><tr><th>Sede</th><th>Nombre</th><th>Teléfono</th><th>Ingreso</th><th>Cambió a</th><th>Cuándo</th><th>Demora</th></tr></thead>`;
-  const body = '<tbody>' + sorted.slice(0,300).map(r => `<tr>
+  if (!detailRows.length){ wrap.innerHTML = '<p style="font-size:12px;color:var(--muted);padding:1rem 0">Sin datos todavía. En cuanto los profes empiecen a cambiar estados, va a ir apareciendo acá.</p>'; return; }
+
+  const visibles = detailRows.slice(0,300);
+  const allChecked = visibles.every(r => respSelectedIds.has(r._id));
+  const head = `<thead><tr>
+    <th><input type="checkbox" ${allChecked?'checked':''} onchange="toggleSelectAllRespRows(this.checked)"></th>
+    <th>Sede</th><th>Nombre</th><th>Teléfono</th><th>Ingreso</th><th>Cambió a</th><th>Cuándo</th><th>Demora</th>
+  </tr></thead>`;
+  const body = '<tbody>' + visibles.map(r => {
+    const checked = respSelectedIds.has(r._id);
+    return `<tr class="${checked?'row-selected':''}">
+    <td><input type="checkbox" ${checked?'checked':''} onchange="toggleSelectRespRow('${r._id}', this.checked)"></td>
     <td>${escapeHtml(r.sede)}</td>
     <td>${escapeHtml(r.nombre)}</td>
     <td>${escapeHtml(cleanPhone(r.telefono))}</td>
     <td>${fmtDate(r.ingreso ? r.ingreso.toISOString() : null)}</td>
-    <td><span class="status-pill ${statusPillClass(classifyEstado(r.estado).cat)}">${escapeHtml(r.estado)}</span></td>
+    <td><span class="status-pill ${statusPillClass(r.estadoCat)}">${escapeHtml(r.estado)}</span></td>
     <td>${fmtDate(r.cambio ? r.cambio.toISOString() : null)}</td>
     <td class="wait-badge ${r.minutos>240?'crit':(r.minutos>60?'warn':'ok')}">${fmtElapsed({totalMinutes:r.minutos})}</td>
-  </tr>`).join('') + '</tbody>';
-  wrap.innerHTML = `<table class="priority-table">${head}${body}</table>`;
-  if (sorted.length > 300){
-    wrap.innerHTML += `<p style="font-size:11px;color:var(--muted);padding:.5rem 0">Mostrando los 300 casos más lentos de ${sorted.length} totales.</p>`;
+  </tr>`;
+  }).join('') + '</tbody>';
+  wrap.innerHTML = `<div class="resp-table-wrap"><table class="resp-table">${head}${body}</table></div>`;
+  if (detailRows.length > 300){
+    wrap.innerHTML += `<p style="font-size:11px;color:var(--muted);padding:.5rem 0">Mostrando los 300 casos más lentos de ${detailRows.length} totales.</p>`;
   }
 }
 
+function toggleSelectRespRow(id, checked){
+  if (checked) respSelectedIds.add(id); else respSelectedIds.delete(id);
+  updateRespHideRestoreButtons();
+  renderRespTablaDetalle();
+}
+function toggleSelectAllRespRows(checked){
+  getRespDetailRows().slice(0,300).forEach(r => { if (checked) respSelectedIds.add(r._id); else respSelectedIds.delete(r._id); });
+  renderRespTablaDetalle();
+}
+function updateRespHideRestoreButtons(){
+  const btnHide = document.getElementById('resp-btn-hide');
+  if (btnHide) btnHide.disabled = respSelectedIds.size === 0;
+  const btnRestore = document.getElementById('resp-btn-restore');
+  if (btnRestore){
+    if (respHiddenIds.size > 0){
+      btnRestore.style.display = '';
+      btnRestore.textContent = 'Mostrar ' + respHiddenIds.size + ' oculto' + (respHiddenIds.size===1?'':'s');
+    } else {
+      btnRestore.style.display = 'none';
+    }
+  }
+}
+function hideRespSelected(){
+  if (!respSelectedIds.size) return;
+  respSelectedIds.forEach(id => respHiddenIds.add(id));
+  respSelectedIds.clear();
+  renderRespuestas(); // ocultar afecta todo: KPIs, gráfico, %, ranking y detalle
+}
+function restoreRespHidden(){
+  respHiddenIds.clear();
+  renderRespuestas();
+}
+
+// ---- Exportar a Excel ----
+async function exportRespExcel(){
+  const allRows = getRespDetailRows();
+  const selectedVisible = allRows.filter(r => respSelectedIds.has(r._id));
+  const rows = selectedVisible.length ? selectedVisible : allRows;
+  if (!rows.length){ alert('No hay datos para exportar.'); return; }
+
+  const btn = document.getElementById('resp-btn-export');
+  btn.disabled = true;
+  const originalTxt = btn.innerHTML;
+  btn.innerHTML = 'Generando…';
+  try {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'CORE · Tiempos de Respuesta';
+    wb.created = new Date();
+    const ws = wb.addWorksheet('Tiempos de respuesta');
+
+    ws.columns = [
+      { header: 'Sede', key: 'sede', width: 20 },
+      { header: 'Nombre', key: 'nombre', width: 24 },
+      { header: 'Teléfono', key: 'telefono', width: 16 },
+      { header: 'Fecha de ingreso', key: 'ingreso', width: 18 },
+      { header: 'Cambió a', key: 'estado', width: 24 },
+      { header: 'Fecha/hora del cambio', key: 'cambio', width: 18 },
+      { header: 'Demora (horario laboral)', key: 'demora', width: 20 }
+    ];
+    const headerRow = ws.getRow(1);
+    headerRow.eachCell(cell => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF5C33' } };
+    });
+    headerRow.height = 20;
+
+    rows.forEach(r => {
+      const row = ws.addRow({
+        sede: r.sede,
+        nombre: r.nombre,
+        telefono: cleanPhone(r.telefono),
+        ingreso: fmtDate(r.ingreso ? r.ingreso.toISOString() : null),
+        estado: r.estado,
+        cambio: fmtDate(r.cambio ? r.cambio.toISOString() : null),
+        demora: fmtElapsed({totalMinutes: r.minutos})
+      });
+      row.eachCell(cell => { cell.font = { size: 10.5 }; });
+      const cls = statusPillClass(r.estadoCat);
+      const bg = cls === 'red' ? 'FFFCE7E4' : cls === 'amber' ? 'FFFBF1DD' : cls === 'purple' ? 'FFEFE9FE' : cls === 'green' ? 'FFE7F5EC' : 'FFEDEDED';
+      const fg = cls === 'red' ? 'FFD9483A' : cls === 'amber' ? 'FFE0A526' : cls === 'purple' ? 'FF8B5CF6' : cls === 'green' ? 'FF3FA66B' : 'FF666666';
+      const estadoCell = row.getCell('estado');
+      estadoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
+      estadoCell.font = { bold: true, color: { argb: fg }, size: 10.5 };
+      if (r.minutos > 240) row.getCell('demora').font = { bold: true, color: { argb: 'FFD9483A' }, size: 10.5 };
+    });
+
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+    ws.autoFilter = { from: 'A1', to: 'G1' };
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const fecha = new Date().toISOString().slice(0,10);
+    const sedeSel = document.getElementById('resp-sede-filter').value;
+    a.href = url;
+    a.download = 'CORE_Tiempos_Respuesta_' + (sedeSel ? sedeSel.replace(/[^a-zA-Z0-9]+/g,'_') + '_' : '') + fecha + '.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch(e){
+    alert('No se pudo generar el Excel: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalTxt;
+  }
+}
+
+document.getElementById('resp-search') && document.getElementById('resp-search').addEventListener('input', () => renderRespTablaDetalle());
+
 // Estado inicial
-console.log('%cCORE · Seguimiento de Interesados — build 2026-08-27-v11 (filtros de sede compartidos entre pestañas)', 'color:#FF5C33;font-weight:bold');
+console.log('%cCORE · Seguimiento de Interesados — build 2026-09-03-v12 (Tiempos de Respuesta: filtros propios, selección, ocultar, export, % por resultado)', 'color:#FF5C33;font-weight:bold');
 selectedSedes = loadSelectedSedes();
 renderOverview();
 </script>
