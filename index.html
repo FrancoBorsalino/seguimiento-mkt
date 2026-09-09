@@ -1724,28 +1724,66 @@ function renderRespDistribucionResultado(rows){
 
 // Agrupa por sede y calcula cantidad/promedio/mediana. Sin ordenar todavía — cada quien
 // (pantalla vs. exports) ordena como necesita.
+// Lista de sedes "conocidas" según el filtro actual: si hay una sede puntual elegida, es solo
+// esa; si está en "Todas", es la lista completa (viene de la pestaña Seguimiento si ya se
+// sincronizó ahí; si no, usamos las que aparecen en el propio registro de respuestas).
+function sedesEnAlcance(){
+  const sedeSel = document.getElementById('resp-sede-filter').value;
+  if (sedeSel) return [sedeSel];
+  if (typeof allSedeNames !== 'undefined' && allSedeNames.length) return allSedeNames;
+  return sortSedesNumeric([...new Set(respuestasData.map(r => r.sede))]);
+}
+
+// Agrupa por sede y calcula cantidad/promedio/mediana. Las sedes del alcance actual que no
+// tengan ninguna fila en este período quedan marcadas con sinDatos:true (en vez de no aparecer).
 function computeSedeRanking(rows){
   const bySede = {};
   rows.forEach(r => { (bySede[r.sede] = bySede[r.sede] || []).push(r.minutos); });
-  return Object.keys(bySede).map(sede => {
+  const conocidas = sedesEnAlcance();
+  const resultado = [];
+  conocidas.forEach(sede => {
     const mins = bySede[sede];
-    const prom = mins.reduce((a,b)=>a+b,0)/mins.length;
-    return { sede, cantidad: mins.length, promedio: prom, mediana: mediana(mins) };
+    if (mins && mins.length){
+      const prom = mins.reduce((a,b)=>a+b,0)/mins.length;
+      resultado.push({ sede, cantidad: mins.length, promedio: prom, mediana: mediana(mins), sinDatos: false });
+    } else {
+      resultado.push({ sede, cantidad: 0, promedio: null, mediana: null, sinDatos: true });
+    }
   });
+  // por si alguna sede con datos no estuviera en la lista "conocida" (caso raro, por las dudas)
+  Object.keys(bySede).forEach(sede => {
+    if (!conocidas.includes(sede)){
+      const mins = bySede[sede];
+      const prom = mins.reduce((a,b)=>a+b,0)/mins.length;
+      resultado.push({ sede, cantidad: mins.length, promedio: prom, mediana: mediana(mins), sinDatos: false });
+    }
+  });
+  return resultado;
 }
 
 function renderRespTablaSedes(rows){
   const sedes = computeSedeRanking(rows);
-  sedes.sort((a,b) => b.promedio - a.promedio); // peor (más lento) primero — para levantar alertas
+  const conDatos = sedes.filter(s => !s.sinDatos).sort((a,b) => b.promedio - a.promedio); // peor primero
+  const sinDatos = sedes.filter(s => s.sinDatos).sort((a,b) => sedeNum(a.sede) - sedeNum(b.sede));
+  const ordenados = conDatos.concat(sinDatos);
   const wrap = document.getElementById('resp-tabla-sedes');
-  if (!sedes.length){ wrap.innerHTML = '<p style="font-size:12px;color:var(--muted);padding:1rem 0">Sin datos.</p>'; return; }
+  if (!ordenados.length){ wrap.innerHTML = '<p style="font-size:12px;color:var(--muted);padding:1rem 0">Sin datos.</p>'; return; }
   const head = `<thead><tr><th>Sede</th><th>Cant.</th><th>Promedio</th><th>Mediana</th></tr></thead>`;
-  const body = '<tbody>' + sedes.map(s => `<tr>
+  const body = '<tbody>' + ordenados.map(s => {
+    if (s.sinDatos){
+      return `<tr style="opacity:.55">
+        <td>${escapeHtml(s.sede)}</td>
+        <td>0</td>
+        <td colspan="2" style="color:var(--muted);font-style:italic">Sin respuestas registradas</td>
+      </tr>`;
+    }
+    return `<tr>
     <td>${escapeHtml(s.sede)}</td>
     <td>${s.cantidad}</td>
     <td class="wait-badge ${s.promedio>240?'crit':(s.promedio>60?'warn':'ok')}">${fmtElapsed({totalMinutes:s.promedio})}</td>
     <td>${fmtElapsed({totalMinutes:s.mediana})}</td>
-  </tr>`).join('') + '</tbody>';
+  </tr>`;
+  }).join('') + '</tbody>';
   wrap.innerHTML = `<table class="resp-table">${head}${body}</table>`;
 }
 
@@ -1756,17 +1794,22 @@ const RANKING_COLORS = {
   bandLight: 'FFFFFF', bandDark: 'C9D1D3', topAccent: 'FF5C33', bottomAccent: '474747'
 };
 
+// Las sedes sin datos van al final, numeradas pero SIN el resaltado de top3/bottom3
+// (no corresponde compararlas si nunca hubo una respuesta que medir).
 function rankingAscendente(){
   const rows = respBaseFiltered();
   const sedes = computeSedeRanking(rows);
-  sedes.sort((a,b) => a.promedio - b.promedio); // 1 = mejor (más rápido)
-  return sedes.map((s, i) => ({ ...s, rank: i+1 }));
+  const conDatos = sedes.filter(s => !s.sinDatos).sort((a,b) => a.promedio - b.promedio)
+    .map((s, i) => ({ ...s, rank: i+1 }));
+  const sinDatos = sedes.filter(s => s.sinDatos).sort((a,b) => sedeNum(a.sede) - sedeNum(b.sede))
+    .map((s, i) => ({ ...s, rank: conDatos.length + i + 1 }));
+  return conDatos.concat(sinDatos);
 }
 
 async function exportRankingExcel(){
   const sedes = rankingAscendente();
   if (!sedes.length){ alert('No hay datos para exportar.'); return; }
-  const n = sedes.length;
+  const nReal = sedes.filter(s => !s.sinDatos).length; // el top3/bottom3 solo aplica entre las que SÍ tienen datos
   const THIN = { style: 'thin' };
 
   const wb = new ExcelJS.Workbook();
@@ -1811,9 +1854,36 @@ async function exportRankingExcel(){
     const filaExcel = i + 3;
     const row = ws.getRow(filaExcel);
     row.height = 18.75;
-    const esTop3 = s.rank <= 3;
-    const esBottom3 = s.rank > n - 3;
+    const esTop3 = !s.sinDatos && s.rank <= 3;
+    const esBottom3 = !s.sinDatos && s.rank > nReal - 3;
     const bandColor = (filaExcel % 2 === 0) ? RANKING_COLORS.bandDark : RANKING_COLORS.bandLight;
+
+    if (s.sinDatos){
+      // Sede sin ninguna respuesta registrada en el período: se muestra igual, en gris neutro,
+      // sin resaltado de top3/bottom3 (no corresponde compararla si no hay nada que medir).
+      ws.mergeCells(filaExcel, 3, filaExcel, 5);
+      let c1 = row.getCell(1);
+      c1.value = s.rank;
+      c1.font = { name: 'Roboto', size: 13, color: { argb: 'FF888888' } };
+      c1.alignment = { horizontal: 'center', vertical: 'middle' };
+      c1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + RANKING_COLORS.rowBg } };
+      c1.border = { top: THIN, bottom: THIN, left: THIN, right: THIN };
+
+      let c2 = row.getCell(2);
+      c2.value = s.sede;
+      c2.font = { name: 'Roboto', size: 13, italic: true, color: { argb: 'FF888888' } };
+      c2.alignment = { horizontal: 'left', vertical: 'middle' };
+      c2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + RANKING_COLORS.rowBg } };
+      c2.border = { top: THIN, bottom: THIN, left: THIN, right: THIN };
+
+      let c3 = row.getCell(3);
+      c3.value = 'Sin respuestas registradas';
+      c3.font = { name: 'Roboto', size: 11, italic: true, color: { argb: 'FF888888' } };
+      c3.alignment = { horizontal: 'center', vertical: 'middle' };
+      c3.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + RANKING_COLORS.rowBg } };
+      c3.border = { top: THIN, bottom: THIN, left: THIN, right: THIN };
+      return;
+    }
 
     // Columna 1: #
     let c = row.getCell(1);
@@ -1875,7 +1945,7 @@ async function exportRankingExcel(){
 function exportRankingPDF(){
   const sedes = rankingAscendente();
   if (!sedes.length){ alert('No hay datos para exportar.'); return; }
-  const n = sedes.length;
+  const nReal = sedes.filter(s => !s.sinDatos).length; // el top3/bottom3 solo aplica entre las que SÍ tienen datos
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -1893,11 +1963,10 @@ function exportRankingPDF(){
   doc.setFontSize(13);
   doc.text('RANKING TIEMPO DE RESPUESTA PROMEDIO POR SEDE', pageWidth/2, titleY + titleH/2 + 1.3, { align: 'center' });
 
-  const body = sedes.map(s => [
-    s.rank, s.sede, s.cantidad,
-    fmtElapsed({ totalMinutes: s.promedio }),
-    fmtElapsed({ totalMinutes: s.mediana })
-  ]);
+  const body = sedes.map(s => s.sinDatos
+    ? [s.rank, s.sede, 0, { content: 'Sin respuestas registradas', colSpan: 2 }]
+    : [s.rank, s.sede, s.cantidad, fmtElapsed({ totalMinutes: s.promedio }), fmtElapsed({ totalMinutes: s.mediana })]
+  );
 
   // Anchos proporcionales al ancho de página (mismo orden que en el Excel de referencia)
   const w0 = tableWidth * 0.09, w1 = tableWidth * 0.33, w2 = tableWidth * 0.16, w3 = tableWidth * 0.24, w4 = tableWidth * 0.18;
@@ -1921,8 +1990,17 @@ function exportRankingPDF(){
       if (data.section !== 'body') return;
       const s = sedes[data.row.index];
       const col = data.column.index;
+
+      if (s.sinDatos){
+        // Fila neutra, sin resaltado — no hay nada que comparar todavía.
+        data.cell.styles.fillColor = [0xCC, 0xCC, 0xCC];
+        data.cell.styles.textColor = [0x88, 0x88, 0x88];
+        if (col === 1) data.cell.styles.fontStyle = 'italic';
+        return;
+      }
+
       const esTop3 = s.rank <= 3;
-      const esBottom3 = s.rank > n - 3;
+      const esBottom3 = s.rank > nReal - 3;
 
       if (col <= 3) data.cell.styles.fillColor = [0xCC, 0xCC, 0xCC];
       if (col === 4) data.cell.styles.fillColor = (s.rank % 2 === 0) ? [0xC9,0xD1,0xD3] : [255,255,255];
@@ -2098,7 +2176,7 @@ async function exportRespExcel(){
 document.getElementById('resp-search') && document.getElementById('resp-search').addEventListener('input', () => renderRespTablaDetalle());
 
 // Estado inicial
-console.log('%cCORE · Seguimiento de Interesados — build 2026-09-03-v17 (PDF con descarga directa via jsPDF, sin diálogo de impresión)', 'color:#FF5C33;font-weight:bold');
+console.log('%cCORE · Seguimiento de Interesados — build 2026-09-03-v18 (sedes sin respuestas se muestran, no se ocultan)', 'color:#FF5C33;font-weight:bold');
 selectedSedes = loadSelectedSedes();
 renderOverview();
 </script>
