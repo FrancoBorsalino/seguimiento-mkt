@@ -501,7 +501,11 @@ footer span { color: var(--orange); font-weight: 700; }
     </div>
 
     <div class="card full" style="margin-top:1.25rem">
-      <div class="card-title">Ranking por sede (peor a mejor)</div>
+      <div class="priority-header">
+        <div class="card-title" style="margin-bottom:0">Ranking por sede (peor a mejor)</div>
+        <button class="btn-export" onclick="exportRankingExcel()">Exportar Excel</button>
+        <button class="btn-export" onclick="exportRankingPDF()">Exportar PDF</button>
+      </div>
       <div class="detail-table-wrap" id="resp-tabla-sedes" style="max-height:280px"></div>
     </div>
 
@@ -1714,15 +1718,21 @@ function renderRespDistribucionResultado(rows){
     </div>`).join('') + '</div>';
 }
 
-function renderRespTablaSedes(rows){
+// Agrupa por sede y calcula cantidad/promedio/mediana. Sin ordenar todavía — cada quien
+// (pantalla vs. exports) ordena como necesita.
+function computeSedeRanking(rows){
   const bySede = {};
   rows.forEach(r => { (bySede[r.sede] = bySede[r.sede] || []).push(r.minutos); });
-  const sedes = Object.keys(bySede).map(sede => {
+  return Object.keys(bySede).map(sede => {
     const mins = bySede[sede];
     const prom = mins.reduce((a,b)=>a+b,0)/mins.length;
     return { sede, cantidad: mins.length, promedio: prom, mediana: mediana(mins) };
   });
-  sedes.sort((a,b) => b.promedio - a.promedio); // peor (más lento) primero
+}
+
+function renderRespTablaSedes(rows){
+  const sedes = computeSedeRanking(rows);
+  sedes.sort((a,b) => b.promedio - a.promedio); // peor (más lento) primero — para levantar alertas
   const wrap = document.getElementById('resp-tabla-sedes');
   if (!sedes.length){ wrap.innerHTML = '<p style="font-size:12px;color:var(--muted);padding:1rem 0">Sin datos.</p>'; return; }
   const head = `<thead><tr><th>Sede</th><th>Cant.</th><th>Promedio</th><th>Mediana</th></tr></thead>`;
@@ -1733,6 +1743,144 @@ function renderRespTablaSedes(rows){
     <td>${fmtElapsed({totalMinutes:s.mediana})}</td>
   </tr>`).join('') + '</tbody>';
   wrap.innerHTML = `<table class="resp-table">${head}${body}</table>`;
+}
+
+// ---- Export del ranking (Excel + PDF), ordenado de MEJOR a PEOR (1 = mejor) ----
+// Colores tomados del formato de referencia que pasó Fran (ranking.xlsx).
+const RANKING_COLORS = {
+  titleBg: '333333', headerBg: 'FF5C33', rowBg: 'CCCCCC',
+  bandLight: 'FFFFFF', bandDark: 'C9D1D3', topAccent: 'FF5C33', bottomAccent: '474747'
+};
+
+function rankingAscendente(){
+  const rows = respBaseFiltered();
+  const sedes = computeSedeRanking(rows);
+  sedes.sort((a,b) => a.promedio - b.promedio); // 1 = mejor (más rápido)
+  return sedes.map((s, i) => ({ ...s, rank: i+1 }));
+}
+
+async function exportRankingExcel(){
+  const sedes = rankingAscendente();
+  if (!sedes.length){ alert('No hay datos para exportar.'); return; }
+  const n = sedes.length;
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'CORE · Tiempos de Respuesta';
+  wb.created = new Date();
+  const ws = wb.addWorksheet('Tiempo de respuesta');
+  ws.columns = [
+    { header: '#', key: 'rank', width: 6 },
+    { header: 'Sede', key: 'sede', width: 24 },
+    { header: 'Cantidad', key: 'cantidad', width: 12 },
+    { header: 'Promedio', key: 'promedio', width: 16 },
+    { header: 'Mediana', key: 'mediana', width: 16 }
+  ];
+
+  // Fila de título, combinada A1:E1
+  ws.insertRow(1, ['RANKING TIEMPO DE RESPUESTA PROMEDIO POR SEDE']);
+  ws.mergeCells('A1:E1');
+  const titleCell = ws.getCell('A1');
+  titleCell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + RANKING_COLORS.titleBg } };
+  titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+  ws.getRow(1).height = 22;
+
+  const headerRow = ws.getRow(2);
+  headerRow.eachCell(cell => {
+    cell.font = { bold: true, color: { argb: 'FF000000' }, size: 11 };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + RANKING_COLORS.headerBg } };
+  });
+  headerRow.height = 20;
+
+  sedes.forEach((s, i) => {
+    const filaExcel = i + 3; // fila 1 = título, fila 2 = header, datos desde la 3
+    const row = ws.getRow(filaExcel);
+    row.getCell(1).value = s.rank;
+    row.getCell(2).value = s.sede;
+    row.getCell(3).value = s.cantidad;
+    row.getCell(4).value = fmtElapsed({ totalMinutes: s.promedio });
+    row.getCell(5).value = fmtElapsed({ totalMinutes: s.mediana });
+
+    const esTop3 = s.rank <= 3;
+    const esBottom3 = s.rank > n - 3;
+    const bandColor = (filaExcel % 2 === 0) ? RANKING_COLORS.bandDark : RANKING_COLORS.bandLight;
+
+    [1,2,3,4].forEach(col => {
+      row.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + RANKING_COLORS.rowBg } };
+    });
+    row.getCell(5).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + bandColor } };
+
+    if (esTop3){
+      row.getCell(1).font = { bold: true, color: { argb: 'FF' + RANKING_COLORS.topAccent } };
+      row.getCell(2).font = { bold: true, color: { argb: 'FF' + RANKING_COLORS.topAccent } };
+    }
+    if (esBottom3){
+      row.getCell(2).font = { bold: true, color: { argb: 'FF000000' } };
+      row.getCell(4).font = { bold: true, color: { argb: 'FF000000' } };
+      row.getCell(5).font = { bold: true, color: { argb: 'FF' + RANKING_COLORS.bottomAccent } };
+    }
+    row.eachCell(cell => { if (!cell.font || !cell.font.size) cell.font = { ...(cell.font||{}), size: 10.5 }; });
+  });
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const fecha = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = 'CORE_Ranking_Tiempo_Respuesta_' + fecha + '.xlsx';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// PDF: como no sumamos una librería nueva de PDF, armamos una hoja HTML con el mismo formato,
+// tamaño A4, y abrimos el diálogo de impresión del navegador — ahí eligiendo "Guardar como PDF"
+// como destino se obtiene el PDF. Es el camino más liviano y confiable sin agregar dependencias.
+function exportRankingPDF(){
+  const sedes = rankingAscendente();
+  if (!sedes.length){ alert('No hay datos para exportar.'); return; }
+  const n = sedes.length;
+
+  const filas = sedes.map((s) => {
+    const esTop3 = s.rank <= 3;
+    const esBottom3 = s.rank > n - 3;
+    const bandColor = (s.rank % 2 === 0) ? RANKING_COLORS.bandDark : RANKING_COLORS.bandLight;
+    const rankStyle = esTop3 ? `color:#${RANKING_COLORS.topAccent};font-weight:bold;` : '';
+    const sedeStyle = esTop3 ? `color:#${RANKING_COLORS.topAccent};font-weight:bold;` : (esBottom3 ? 'color:#000;font-weight:bold;' : '');
+    const promStyle = esBottom3 ? 'color:#000;font-weight:bold;' : '';
+    const medStyle = esBottom3 ? `color:#${RANKING_COLORS.bottomAccent};font-weight:bold;` : '';
+    return `<tr>
+      <td style="background:#${RANKING_COLORS.rowBg};${rankStyle}">${s.rank}</td>
+      <td style="background:#${RANKING_COLORS.rowBg};${sedeStyle}">${escapeHtml(s.sede)}</td>
+      <td style="background:#${RANKING_COLORS.rowBg};">${s.cantidad}</td>
+      <td style="background:#${RANKING_COLORS.rowBg};${promStyle}">${fmtElapsed({totalMinutes:s.promedio})}</td>
+      <td style="background:#${bandColor};${medStyle}">${fmtElapsed({totalMinutes:s.mediana})}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ranking Tiempo de Respuesta</title>
+  <style>
+    @page { size: A4; margin: 15mm; }
+    body { font-family: Arial, sans-serif; display:flex; justify-content:center; }
+    table { border-collapse: collapse; width: 100%; max-width: 700px; }
+    th, td { padding: 6px 10px; font-size: 11px; text-align: left; }
+    thead th { background:#${RANKING_COLORS.headerBg}; color:#000; font-weight:bold; }
+    caption { background:#${RANKING_COLORS.titleBg}; color:#fff; font-weight:bold; padding:10px; font-size:13px; }
+  </style></head>
+  <body>
+    <table>
+      <caption>RANKING TIEMPO DE RESPUESTA PROMEDIO POR SEDE</caption>
+      <thead><tr><th>#</th><th>Sede</th><th>Cantidad</th><th>Promedio</th><th>Mediana</th></tr></thead>
+      <tbody>${filas}</tbody>
+    </table>
+    <script>window.onload = () => setTimeout(() => window.print(), 200);<\/script>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
 }
 
 // ---- Selección / ocultar / búsqueda en el detalle ----
@@ -1889,7 +2037,7 @@ async function exportRespExcel(){
 document.getElementById('resp-search') && document.getElementById('resp-search').addEventListener('input', () => renderRespTablaDetalle());
 
 // Estado inicial
-console.log('%cCORE · Seguimiento de Interesados — build 2026-09-03-v14 (fix: tablas de respuesta sin desbordar + header prolijo)', 'color:#FF5C33;font-weight:bold');
+console.log('%cCORE · Seguimiento de Interesados — build 2026-09-03-v15 (export Excel/PDF del ranking, formato CORE)', 'color:#FF5C33;font-weight:bold');
 selectedSedes = loadSelectedSedes();
 renderOverview();
 </script>
