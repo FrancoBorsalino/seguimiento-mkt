@@ -1449,6 +1449,7 @@ document.getElementById('priority-search') && document.getElementById('priority-
 // ---- Charts ----
 function renderChartEstados(data){
   const ctx = document.getElementById('c-estados');
+  if (!ctx) return; // el panel de la sede no está abierto en este momento
   ctx.parentElement.innerHTML = '<canvas id="c-estados"></canvas>';
   const ctx2 = document.getElementById('c-estados');
   const counts = ESTADOS_ORDEN.map(cat => data.filter(d => d.estadoCat === cat).length);
@@ -1473,6 +1474,7 @@ function renderChartEstados(data){
 
 function renderChartAntiguedad(alertas){
   const ctx = document.getElementById('c-antiguedad');
+  if (!ctx) return;
   ctx.parentElement.innerHTML = '<canvas id="c-antiguedad"></canvas>';
   const ctx2 = document.getElementById('c-antiguedad');
   if (!alertas.length){ ctx2.parentElement.innerHTML = '<div class="empty-chart">Sin alertas abiertas</div>'; return; }
@@ -1499,6 +1501,7 @@ function renderChartAntiguedad(alertas){
 
 function renderChartInteres(data){
   const ctx = document.getElementById('c-interes');
+  if (!ctx) return;
   ctx.parentElement.innerHTML = '<canvas id="c-interes"></canvas>';
   const ctx2 = document.getElementById('c-interes');
   const alto = data.filter(d => d.interesNorm==='alto').length;
@@ -1516,6 +1519,7 @@ function renderChartInteres(data){
 
 function renderChartEvolucion(sede){
   const ctx = document.getElementById('c-evolucion');
+  if (!ctx) return;
   ctx.parentElement.innerHTML = '<canvas id="c-evolucion"></canvas>';
   const ctx2 = document.getElementById('c-evolucion');
   const sedeData = liveData.filter(d => d.sede === sede);
@@ -1681,6 +1685,7 @@ function renderRespuestas(){
 
 function renderRespDistChart(minutos){
   const ctx = document.getElementById('c-resp-dist');
+  if (!ctx) return;
   ctx.parentElement.innerHTML = '<canvas id="c-resp-dist"></canvas>';
   const ctx2 = document.getElementById('c-resp-dist');
   if (respCharts.dist) { respCharts.dist.destroy(); respCharts.dist = null; }
